@@ -1,7 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  ArrowUpRight,
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+import {
   ArrowRight,
   ArrowLeft,
   Camera,
@@ -16,24 +23,33 @@ import {
 import "./style.css";
 
 function App() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isGhibli = location.pathname.startsWith("/ghibli");
+  const mode = isGhibli ? "ghibli" : "multiplaces";
+  const step = location.pathname.endsWith("/capture")
+    ? 1
+    : location.pathname.endsWith("/result")
+      ? 2
+      : 0;
   const [templates, setTemplates] = useState([]),
     [selected, setSelected] = useState(null),
-    [step, setStep] = useState(0),
     [photo, setPhoto] = useState(null),
     [preview, setPreview] = useState(""),
     [result, setResult] = useState(""),
     [shareUrl, setShareUrl] = useState(""),
     [qrCode, setQrCode] = useState(""),
-    [confirmed, setConfirmed] = useState(false),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [camera, setCamera] = useState(false),
     [ready, setReady] = useState(false),
+    [capturing, setCapturing] = useState(false),
     [opening, setOpening] = useState(false),
     [configured, setConfigured] = useState(null);
   const video = useRef(null),
     stream = useRef(null),
     cameraToken = useRef(0),
+    automaticCameraPath = useRef(""),
     fileInput = useRef(null);
   useEffect(() => {
     fetch("/api/templates")
@@ -70,12 +86,38 @@ function App() {
     if (camera && video.current && stream.current)
       video.current.srcObject = stream.current;
   }, [camera]);
+  useEffect(() => {
+    if (step !== 1) {
+      automaticCameraPath.current = "";
+      if (stream.current) stopCamera();
+      return;
+    }
+    if (
+      !photo &&
+      !camera &&
+      !opening &&
+      automaticCameraPath.current !== location.pathname
+    ) {
+      automaticCameraPath.current = location.pathname;
+      startCamera();
+    }
+  }, [step, photo, camera, opening, location.pathname]);
+  useEffect(() => {
+    if (step === 2 && !result) navigate(`/${mode}`, { replace: true });
+  }, [step, result, mode, navigate]);
+  useEffect(() => {
+    if (!busy) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previous; };
+  }, [busy]);
   function stopCamera() {
     cameraToken.current++;
     stream.current?.getTracks().forEach((t) => t.stop());
     stream.current = null;
     setCamera(false);
     setReady(false);
+    setCapturing(false);
     setOpening(false);
   }
   async function startCamera() {
@@ -123,38 +165,52 @@ function App() {
       return;
     }
     stopCamera();
-    setConfirmed(false);
     setPhoto(file);
   }
-  function capture() {
-    if (!ready || !video.current?.videoWidth) return;
+  async function capture() {
+    if (capturing) return;
+    const source = video.current;
+    if (!source || source.readyState < 2 || !source.videoWidth) {
+      setError("The camera is still getting ready. Please wait a moment.");
+      return;
+    }
+    setCapturing(true);
+    setError("");
     const canvas = document.createElement("canvas");
-    canvas.width = video.current.videoWidth;
-    canvas.height = video.current.videoHeight;
+    // Match object-fit: cover in the portrait preview with a centered 3:4 crop.
+    const cropWidth = isGhibli
+      ? Math.min(source.videoWidth, source.videoHeight * 3 / 4)
+      : source.videoWidth;
+    const cropHeight = isGhibli ? cropWidth * 4 / 3 : source.videoHeight;
+    canvas.width = Math.round(cropWidth);
+    canvas.height = Math.round(cropHeight);
     const ctx = canvas.getContext("2d");
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
-    ctx.drawImage(video.current, 0, 0);
-    canvas.toBlob(
-      (blob) => {
-        if (blob)
-          choosePhoto(
-            new File([blob], "group-photo.webp", { type: "image/webp" }),
-          );
-        else setError("Capture failed. Please try again.");
-      },
-      "image/webp",
-      1,
+    ctx.drawImage(source,
+      (source.videoWidth - cropWidth) / 2,
+      (source.videoHeight - cropHeight) / 2,
+      cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/webp", 1),
     );
+    if (blob)
+      choosePhoto(
+        new File([blob], "group-photo.webp", { type: "image/webp" }),
+      );
+    else {
+      setCapturing(false);
+      setError("Capture failed. Please try again.");
+    }
   }
   async function generate() {
-    if (busy || !photo || !confirmed) return;
+    if (busy || !photo) return;
     setBusy(true);
     setError("");
     const form = new FormData();
-    form.append("templateId", selected.id);
+    form.append("mode", mode);
+    if (!isGhibli) form.append("templateId", selected.id);
     form.append("photo", photo);
-    form.append("confirmed", "true");
     try {
       const r = await fetch("/api/generate", {
         method: "POST",
@@ -168,7 +224,7 @@ function App() {
       setResult(d.image);
       setShareUrl(d.shareUrl || "");
       setQrCode(d.qrCode || "");
-      setStep(2);
+      navigate(`/${mode}/result`);
     } catch (e) {
       setError(
         e.name === "TimeoutError"
@@ -181,353 +237,390 @@ function App() {
   }
   function reset() {
     stopCamera();
-    setStep(0);
     setPhoto(null);
     setResult("");
     setShareUrl("");
     setQrCode("");
-    setConfirmed(false);
     setError("");
+    navigate(`/${mode}`);
+  }
+  function switchMode(nextMode) {
+    stopCamera();
+    setPhoto(null);
+    setResult("");
+    setShareUrl("");
+    setQrCode("");
+    setError("");
+    navigate(`/${nextMode}`);
   }
   return (
-    <div className="min-h-screen flex flex-col">
-      <main className="flex-1">
-        <nav className="steps" aria-label="Progress">
-          {["Choose a template", "Add your people", "Make a memory"].map(
-            (name, i) => (
-              <React.Fragment key={name}>
-                {i > 0 && <span className="step-line" />}
-                <span
-                  className={`step ${i === step ? "active" : ""} ${i < step ? "done" : ""}`}
-                  aria-current={i === step ? "step" : undefined}
-                >
-                  <span className="step-number">
-                    {i < step ? (
-                      <Check size={12} />
-                    ) : (
-                      String(i + 1).padStart(2, "0")
-                    )}
-                  </span>
-                  <span>{name}</span>
-                </span>
-              </React.Fragment>
-            ),
-          )}
-        </nav>
-        {error && (
-          <div className="error" role="alert">
-            {error}
-            <button onClick={() => setError("")} aria-label="Dismiss error">
-              <X size={16} />
+    <>
+      <div className="min-h-screen flex flex-col" inert={busy ? true : undefined}>
+        <header className="site-header">
+          <button className="site-logo" onClick={() => switchMode(mode)}>
+            <img
+              src="/templates/Veeva_Systems_Logo.svg"
+              alt="Veeva Systems"
+            />
+          </button>
+          <nav className="mode-switch" aria-label="Choose experience">
+            <button
+              className={isGhibli ? "active" : ""}
+              aria-pressed={isGhibli}
+              onClick={() => switchMode("ghibli")}
+            >
+              Ghibli
             </button>
-          </div>
-        )}
-        {step === 0 && (
-          <section className="selection-layout">
-            <div className="intro">
-              <h1>
-                Your people.
-                <br />A whole new
-                <br />
-                <span>point of view.</span>
-              </h1>
-              <p className="intro-copy">
-                A familiar face. An unfamiliar place.
-                <br />
-                Pick a template, get everyone in the frame,
-                <br className="desktop-break" /> and take home a memory.
-              </p>
-              <div className="collection-heading">
-                <span>01 — THE TRAVEL COLLECTION</span>
-                <span>
-                  {templates.length} TEMPLATE{templates.length !== 1 ? "S" : ""}
-                </span>
-              </div>
-              <div className="template-options space-y-3">
-                {templates.map((t) => (
-                  <button
-                    className={`template-option ${selected?.id === t.id ? "selected" : ""}`}
-                    key={t.id}
-                    aria-pressed={selected?.id === t.id}
-                    onClick={() => setSelected(t)}
-                  >
-                    <span
-                      className="template-thumbnail"
-                      style={{ backgroundImage: `url('${t.image}')` }}
-                    />
-                    <span className="text-left flex-1">
-                      <strong>{t.name}</strong>
-                      <small>
-                        {t.scenes} destinations · {t.people} people
-                      </small>
-                    </span>
-                    <span className="selection-check" aria-hidden="true">
-                      {selected?.id === t.id && <Check size={14} />}
-                    </span>
-                  </button>
-                ))}
+            <button
+              className={!isGhibli ? "active" : ""}
+              aria-pressed={!isGhibli}
+              onClick={() => switchMode("multiplaces")}
+            >
+              MultiPlaces
+            </button>
+          </nav>
+          <span className="site-header-spacer" aria-hidden="true" />
+        </header>
+        <main className="flex-1">
+          <Routes>
+            <Route path="/" element={<Navigate to="/multiplaces" replace />} />
+            <Route path="/multiplaces" element={null} />
+            <Route path="/multiplaces/capture" element={null} />
+            <Route path="/multiplaces/result" element={null} />
+            <Route path="/ghibli" element={null} />
+            <Route path="/ghibli/capture" element={null} />
+            <Route path="/ghibli/result" element={null} />
+            <Route path="*" element={<Navigate to="/multiplaces" replace />} />
+          </Routes>
+          {error && (
+            <div className="error" role="alert">
+              {error}
+              <button onClick={() => setError("")} aria-label="Dismiss error">
+                <X size={16} />
+              </button>
+            </div>
+          )}
+          {!isGhibli && step === 0 && (
+            <section className="template-gallery-layout">
+              <div className="template-gallery" aria-label="Choose a template">
+                {templates.map((t) => {
+                  const isSelected = selected?.id === t.id;
+                  return (
+                    <button
+                      className={`template-card ${isSelected ? "selected" : ""}`}
+                      key={t.id}
+                      aria-label={`Select ${t.name}`}
+                      aria-pressed={isSelected}
+                      onClick={() => setSelected(t)}
+                    >
+                      <img src={t.image} alt={t.name} />
+                      {isSelected && (
+                        <span className="template-card-check" aria-hidden="true">
+                          <Check size={18} strokeWidth={2.5} />
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
               <button
-                className="primary mt-6"
+                className="primary template-continue"
                 disabled={!selected}
                 onClick={() => {
-                  setStep(1);
+                  navigate("/multiplaces/capture");
                   setError("");
                 }}
               >
-                Use this template
+                Continue
                 <ArrowRight size={18} />
               </button>
-            </div>
-            <div className="art-section">
-              <div className="art-top">
-                <span>THE WORLD LOOKS BETTER TOGETHER</span>
-                <ArrowUpRight size={18} />
+            </section>
+          )}
+          {isGhibli && step === 0 && (
+            <section className="ghibli-start">
+              <div className="ghibli-copy">
+                <p className="eyebrow">HAND-PAINTED PORTRAITS</p>
+                <h1>
+                  Turn a moment into an <span>illustrated story.</span>
+                </h1>
+                <p className="ghibli-description">
+                  Take a photo and reimagine the whole scene with warm color,
+                  expressive detail, and the softness of a hand-painted film.
+                </p>
+                <button
+                  className="primary ghibli-start-button"
+                  onClick={() => navigate("/ghibli/capture")}
+                >
+                  Start
+                  <ArrowRight size={18} />
+                </button>
+                <div className="ghibli-steps" aria-label="How it works">
+                  <span><b>01</b> Capture</span>
+                  <span><b>02</b> Transform</span>
+                  <span><b>03</b> Share</span>
+                </div>
               </div>
-              <div className="poster-wrap">
-                {selected && (
-                  <img
-                    className="poster"
-                    src={selected.image}
-                    alt="Four-scene travel collage featuring three people in Singapore, Sydney, Seoul and Agra"
-                  />
-                )}
-                <span className="poster-caption">YOUR NEXT POSTCARD</span>
-              </div>
-              <div className="art-bottom">
-                <span>{selected?.name || "Loading template…"}</span>
-                <span>{String(templates.findIndex((t) => t.id === selected?.id) + 1).padStart(2, "0")} / {String(templates.length).padStart(2, "0")}</span>
-              </div>
-            </div>
-          </section>
-        )}
-        {step === 1 && (
-          <section className="capture-layout">
-            <div className="capture-main">
-              <button
-                className="text-button"
-                disabled={busy}
-                onClick={() => {
-                  stopCamera();
-                  setStep(0);
-                }}
-              >
-                <ArrowLeft size={15} />
-                Templates
-              </button>
-              <p className="eyebrow mt-8">BETTER WITH ALL THREE OF YOU</p>
-              <h2>
-                {photo
-                  ? "Looking good together."
-                  : "Get your people in the frame."}
-              </h2>
-              <p className="muted mt-3 mb-7">
-                {photo
-                  ? "Check the photo and the left-to-right order before you continue."
-                  : "Stand side by side, face the camera, and find a little good light."}
-              </p>
-              <div className={`camera-frame ${photo ? "has-photo" : ""}`}>
-                {photo ? (
-                  <img
-                    src={preview}
-                    alt="Your group photo, in the exact order used for editing"
-                  />
-                ) : camera ? (
-                  <>
-                    <video
-                      ref={video}
-                      autoPlay
-                      muted
-                      playsInline
-                      onLoadedData={() => setReady(true)}
-                      className="camera-video"
+              <figure className="ghibli-showcase">
+                <img
+                  src="/templates/ghibli-style.png"
+                  alt="Example of the warm hand-painted portrait style"
+                />
+              </figure>
+            </section>
+          )}
+          {step === 1 && (
+            <section className={`capture-layout ${isGhibli ? "solo" : ""}`}>
+              <div className="capture-main">
+                <button
+                  className="text-button"
+                  disabled={busy}
+                  onClick={() => {
+                    stopCamera();
+                    navigate(isGhibli ? "/ghibli" : "/multiplaces");
+                  }}
+                >
+                  <ArrowLeft size={15} />
+                  Back
+                </button>
+                <p className="eyebrow mt-8">
+                  {isGhibli ? "YOUR ANIMATED PORTRAIT" : "BETTER WITH ALL THREE OF YOU"}
+                </p>
+                <h2>
+                  {photo
+                    ? isGhibli
+                      ? "Ready to transform."
+                      : "Looking good together."
+                    : isGhibli
+                      ? "Capture your photo."
+                      : "Get your people in the frame."}
+                </h2>
+                <p className="muted mt-3 mb-7">
+                  {photo
+                    ? isGhibli
+                      ? "Check the photo before creating your illustration."
+                      : "Check the photo and the left-to-right order before you continue."
+                    : isGhibli
+                      ? "Use a clear, well-lit photo for the best illustrated result."
+                      : "Stand side by side, face the camera, and find a little good light."}
+                </p>
+                <div className={`camera-frame ${photo ? "has-photo" : ""} ${isGhibli ? "portrait-frame" : ""}`}>
+                  {photo ? (
+                    <img
+                      src={preview}
+                      alt="Your group photo, in the exact order used for editing"
                     />
-                    <div className="face-guides" aria-hidden="true">
-                      {[1, 2, 3].map((n) => (
-                        <div key={n}>
-                          <span />
-                          {n}
-                        </div>
-                      ))}
+                  ) : camera ? (
+                    <>
+                      <video
+                        ref={video}
+                        autoPlay
+                        muted
+                        playsInline
+                        onCanPlay={() => setReady(true)}
+                        className="camera-video"
+                      />
+                      {!isGhibli && <div className="face-guides" aria-hidden="true">
+                        {[1, 2, 3].map((n) => (
+                          <div key={n}>
+                            <span />
+                            {n}
+                          </div>
+                        ))}
+                      </div>}
+                      <button
+                        className="close-camera"
+                        aria-label="Close camera"
+                        onClick={stopCamera}
+                      >
+                        <X size={18} />
+                      </button>
+                    </>
+                  ) : (
+                    <div className="camera-placeholder">
+                      <div className="people-outline">
+                        <Users size={50} strokeWidth={1} />
+                      </div>
+                      <h3>
+                        {isGhibli ? "One photo. A hand-painted world." : "Three faces. One great photo."}
+                      </h3>
+                      <p>
+                        {isGhibli
+                          ? "Keep faces clear and the full scene inside the frame."
+                          : "Keep every face visible, with a little space between you."}
+                      </p>
+                      <button
+                        className="primary"
+                        onClick={startCamera}
+                        disabled={opening}
+                      >
+                        <Camera size={17} />
+                        {opening ? "Opening camera…" : "Open camera"}
+                      </button>
+                      <button
+                        className="text-button"
+                        onClick={() => fileInput.current.click()}
+                      >
+                        <Upload size={15} />
+                        Or upload a photo
+                      </button>
                     </div>
-                    <button
-                      className="close-camera"
-                      aria-label="Close camera"
-                      onClick={stopCamera}
-                    >
-                      <X size={18} />
-                    </button>
-                  </>
-                ) : (
-                  <div className="camera-placeholder">
-                    <div className="people-outline">
-                      <Users size={50} strokeWidth={1} />
-                    </div>
-                    <h3>Three faces. One great photo.</h3>
-                    <p>
-                      Keep every face visible, with a little space between you.
-                    </p>
+                  )}
+                </div>
+                <input
+                  ref={fileInput}
+                  className="hidden"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(e) => {
+                    choosePhoto(e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                />
+                {camera && (
+                  <div className="capture-controls">
+                    <span>{isGhibli ? "Keep the scene inside the frame" : "Left to right: person 1, 2, 3"}</span>
                     <button
                       className="primary"
-                      onClick={startCamera}
-                      disabled={opening}
+                      onClick={capture}
+                      disabled={!ready || capturing}
                     >
                       <Camera size={17} />
-                      {opening ? "Opening camera…" : "Open camera"}
-                    </button>
-                    <button
-                      className="text-button"
-                      onClick={() => fileInput.current.click()}
-                    >
-                      <Upload size={15} />
-                      Or upload a photo
+                      {!ready
+                        ? "Camera getting ready…"
+                        : capturing
+                          ? "Capturing…"
+                          : "Capture photo"}
                     </button>
                   </div>
                 )}
-              </div>
-              <input
-                ref={fileInput}
-                className="hidden"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={(e) => {
-                  choosePhoto(e.target.files?.[0]);
-                  e.target.value = "";
-                }}
-              />
-              {camera && (
-                <div className="capture-controls">
-                  <span>Left to right: person 1, 2, 3</span>
-                  <button
-                    className="primary"
-                    onClick={capture}
-                    disabled={!ready}
-                  >
-                    <Camera size={17} />
-                    Capture photo
-                  </button>
-                </div>
-              )}
-              {photo && (
-                <>
-                  <div className="capture-controls">
-                    <span>Person 1 → Person 2 → Person 3</span>
+                {photo && (
+                  <>
+                    <div className="capture-controls">
+                      <span>{isGhibli ? "Review your photo" : "Person 1 → Person 2 → Person 3"}</span>
+                      <button
+                        className="text-button"
+                        disabled={busy}
+                        onClick={() => {
+                          setPhoto(null);
+                          setError("");
+                        }}
+                      >
+                        <RotateCcw size={14} />
+                        Retake photo
+                      </button>
+                    </div>
                     <button
-                      className="text-button"
+                      className="primary generate"
                       disabled={busy}
-                      onClick={() => {
-                        setPhoto(null);
-                        setConfirmed(false);
-                        setError("");
-                      }}
+                      onClick={generate}
                     >
-                      <RotateCcw size={14} />
-                      Retake photo
+                      {busy ? (
+                        <>
+                          <LoaderCircle className="animate-spin" size={18} />
+                          {isGhibli ? "Painting your illustration…" : "Creating your postcard…"}
+                        </>
+                      ) : (
+                        <>
+                          {isGhibli ? "Create Ghibli portrait" : "Create our postcard"}
+                          <ArrowRight size={18} />
+                        </>
+                      )}
                     </button>
-                  </div>
-                  <label className="confirmation">
-                    <input
-                      type="checkbox"
-                      checked={confirmed}
-                      disabled={busy}
-                      onChange={(e) => setConfirmed(e.target.checked)}
-                    />
-                    <span>
-                      Exactly three people are clearly visible, and everyone
-                      agrees to use their photo for this edit.
-                    </span>
-                  </label>
-                  <button
-                    className="primary generate"
-                    disabled={!confirmed || busy}
-                    onClick={generate}
-                  >
-                    {busy ? (
-                      <>
-                        <LoaderCircle className="animate-spin" size={18} />
-                        Creating your postcard…
-                      </>
-                    ) : (
-                      <>
-                        Create our postcard
-                        <ArrowRight size={18} />
-                      </>
+                    {busy && (
+                      <p className="muted mt-3" role="status">
+                        This can take a few minutes. Keep this page open.
+                      </p>
                     )}
-                  </button>
-                  {busy && (
-                    <p className="muted mt-3" role="status">
-                      This can take a few minutes. Keep this page open.
-                    </p>
-                  )}
-                </>
-              )}
-              <p className="privacy-note">
-                Your photo is sent to OpenAI only when you create your postcard.
-                This app does not save your photos.
-              </p>
-            </div>
-            <aside className="selected-aside">
-              <span className="eyebrow">YOUR CHOSEN TEMPLATE</span>
-              <img
-                src={selected?.image}
-                alt="Selected travel collage template"
-              />
-              <h3>{selected?.name}</h3>
-              <p>Three people. Four destinations.</p>
-              <div className="mapping-note">
-                <Users size={18} />
-                <span>
-                  The same three faces appear in every scene, in the order shown
-                  in your photo.
-                </span>
+                  </>
+                )}
+                <p className="privacy-note">
+                  Your photo is sent to OpenAI only when you create your image.
+                  This app does not save your photos.
+                </p>
               </div>
-            </aside>
-          </section>
+              {!isGhibli && <aside className="selected-aside">
+                <span className="eyebrow">YOUR CHOSEN TEMPLATE</span>
+                <img
+                  src={selected?.image}
+                  alt="Selected travel collage template"
+                />
+                <h3>{selected?.name}</h3>
+                <p>Three people. Four destinations.</p>
+                <div className="mapping-note">
+                  <Users size={18} />
+                  <span>
+                    The same three faces appear in every scene, in the order shown
+                    in your photo.
+                  </span>
+                </div>
+              </aside>}
+            </section>
+          )}
+          {step === 2 && (
+            <section className="result-layout">
+              <div className="result-image">
+                <img src={result} alt="Your generated travel postcard" />
+              </div>
+              {qrCode && shareUrl && (
+                <a
+                  className="share-qr"
+                  href={shareUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Open shared postcard"
+                >
+                  <img src={qrCode} alt="QR code linking to your shared postcard" />
+                  <span>Scan to open and share</span>
+                </a>
+              )}
+              <div className="result-actions">
+                <a
+                  className="primary"
+                  href={result}
+                  download={isGhibli ? "ghibli-portrait.png" : "multiplaces-postcard.png"}
+                >
+                  <Download size={18} />
+                  Download postcard
+                </a>
+                <button className="text-button" onClick={reset}>
+                  <ArrowLeft size={15} />
+                  Back
+                </button>
+              </div>
+            </section>
+          )}
+        </main>
+        <footer>
+          <span>Made for the places you’ll go. And the people you’ll take.</span>
+          <span>MULTIPLACES STUDIO · 2026</span>
+        </footer>
+        {configured === false && step === 1 && (
+          <div className="setup-note">
+            Preview mode · Add your OpenAI and Cloudinary settings to enable image editing and sharing.
+          </div>
         )}
-        {step === 2 && (
-          <section className="result-layout">
-            <div className="result-image">
-              <img src={result} alt="Your generated travel postcard" />
+      </div>
+      {busy && (
+        <div className="generation-screen" role="status" aria-live="polite" aria-atomic="true">
+          <div className="generation-art" aria-hidden="true">
+            <span className="generation-orbit" />
+            <span className="generation-orbit orbit-inner" />
+            <div className="generation-photo">
+              {preview && <img src={preview} alt="" />}
+              <span className="generation-scan" />
             </div>
-            {qrCode && shareUrl && (
-              <a
-                className="share-qr"
-                href={shareUrl}
-                target="_blank"
-                rel="noreferrer"
-                aria-label="Open shared postcard"
-              >
-                <img src={qrCode} alt="QR code linking to your shared postcard" />
-                <span>Scan to open and share</span>
-              </a>
-            )}
-            <div className="result-actions">
-              <a
-                className="primary"
-                href={result}
-                download="multiplaces-postcard.png"
-              >
-                <Download size={18} />
-                Download postcard
-              </a>
-              <button className="text-button" onClick={reset}>
-                <ArrowLeft size={15} />
-                Back
-              </button>
-            </div>
-          </section>
-        )}
-      </main>
-      <footer>
-        <span>Made for the places you’ll go. And the people you’ll take.</span>
-        <span>MULTIPLACES STUDIO · 2026</span>
-      </footer>
-      {configured === false && step === 1 && (
-        <div className="setup-note">
-          Preview mode · Add your OpenAI and Cloudinary settings to enable image editing and sharing.
+          </div>
+          <p className="generation-title">{isGhibli ? "Painting your story" : "Creating your postcard"}</p>
+          <p className="generation-note">A little detail takes a little time.</p>
+          <div className="generation-dots" aria-hidden="true"><span /><span /><span /></div>
+          <p className="generation-hint">This may take a few minutes. Keep this page open.</p>
         </div>
       )}
-    </div>
+    </>
   );
 }
-createRoot(document.getElementById("root")).render(<App />);
+createRoot(document.getElementById("root")).render(
+  <BrowserRouter>
+    <App />
+  </BrowserRouter>,
+);

@@ -19,10 +19,14 @@ const photo = await sharp({
 })
   .png()
   .toBuffer();
-function form({ id = "world-tour", confirmed = "true", buffer = photo } = {}) {
+function form({
+  id = "world-tour",
+  buffer = photo,
+  mode = "multiplaces",
+} = {}) {
   const f = new FormData();
+  f.append("mode", mode);
   f.append("templateId", id);
-  f.append("confirmed", confirmed);
   f.append("photo", new Blob([buffer], { type: "image/png" }), "photo.png");
   return f;
 }
@@ -43,7 +47,6 @@ test("generation validates requests and sends both images in order", async () =>
   process.env.CLOUDINARY_UPLOAD_PRESET = "test-unsigned-preset";
   for (const [options, message] of [
     [{ id: "../secret" }, "Choose"],
-    [{ confirmed: "false" }, "Confirm"],
     [{ buffer: Buffer.from("bad image") }, "could not be read"],
   ]) {
     const r = await originalFetch(base + "/api/generate", {
@@ -125,6 +128,50 @@ test("generation validates requests and sends both images in order", async () =>
     body: form(),
   });
   assert.equal(r.status, 503);
+  delete process.env.CLOUDINARY_CLOUD_NAME;
+  delete process.env.CLOUDINARY_UPLOAD_PRESET;
+  globalThis.fetch = originalFetch;
+});
+
+test("Ghibli mode edits only the captured photo", async () => {
+  process.env.OPENAI_API_KEY = "test-only-key";
+  process.env.CLOUDINARY_CLOUD_NAME = "test-cloud";
+  process.env.CLOUDINARY_UPLOAD_PRESET = "test-unsigned-preset";
+  let openAiChecked = false;
+  globalThis.fetch = async (url, options) => {
+    if (url === "https://api.openai.com/v1/images/edits") {
+      const request = options.body;
+      assert.deepEqual(
+        request.getAll("image[]").map((image) => image.name),
+        ["group.webp"],
+      );
+      assert.equal(request.get("size"), "auto");
+      assert.match(request.get("prompt"), /hand-painted Japanese animated-film/);
+      openAiChecked = true;
+      return new Response(JSON.stringify({ data: [{ b64_json: "result" }] }), {
+        status: 200,
+      });
+    }
+    assert.equal(
+      url,
+      "https://api.cloudinary.com/v1_1/test-cloud/image/upload",
+    );
+    return new Response(
+      JSON.stringify({
+        secure_url:
+          "https://res.cloudinary.com/test-cloud/image/upload/ghibli.png",
+      }),
+      { status: 200 },
+    );
+  };
+  const response = await originalFetch(base + "/api/generate", {
+    method: "POST",
+    body: form({ mode: "ghibli", id: "not-required" }),
+  });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).shareUrl.endsWith("/ghibli.png"), true);
+  assert.equal(openAiChecked, true);
+  delete process.env.OPENAI_API_KEY;
   delete process.env.CLOUDINARY_CLOUD_NAME;
   delete process.env.CLOUDINARY_UPLOAD_PRESET;
   globalThis.fetch = originalFetch;

@@ -18,11 +18,12 @@ Open http://localhost:5173. The API runs on port 3001. Camera access works on lo
 
 ## Flow
 
-1. Select the supplied Around the world template.
-2. Capture or upload a photograph of three people. The camera preview and saved capture use the same mirrored orientation.
-3. Confirm the three-person count and permission to edit. This version uses explicit human confirmation, not automatic face counting.
-4. Generate and download a PNG. The same people are mapped left-to-right into each of the four panels.
-5. The generated postcard is uploaded to Cloudinary and a QR code is created for its public URL.
+Use the switch at the top to choose one of two routed experiences:
+
+- **MultiPlaces:** select a template, capture or upload a photograph of three people, and map the same people left-to-right across all four panels.
+- **Ghibli:** press Start, capture or upload any clear photo, and transform the complete scene into a hand-painted animated-film illustration.
+
+The flows use `/multiplaces/*` and `/ghibli/*` routes, so browser Back and Forward navigation works between their start, capture, and result pages. Generated images can be downloaded and are uploaded to Cloudinary for QR-code sharing.
 
 The server submits the original template first and the group photo second to `/v1/images/edits`, using `gpt-image-2.5-flare`, maximum quality, and 1536×2304 output (2.25 times the previous pixel count). Model access and billing must be enabled on your OpenAI project. Edit results are probabilistic: exact facial likeness and perfect preservation of every template detail cannot be guaranteed.
 

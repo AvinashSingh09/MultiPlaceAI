@@ -7,7 +7,7 @@ import QRCode from "qrcode";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { templates, editPrompt } from "./templates.js";
+import { templates, editPrompt, ghibliPrompt } from "./templates.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 dotenv.config({ path: path.join(root, ".env"), quiet: true });
@@ -56,21 +56,15 @@ app.post(
   }),
   upload.single("photo"),
   async (req, res) => {
+    const mode = req.body.mode === "ghibli" ? "ghibli" : "multiplaces";
     const template = templates.find((t) => t.id === req.body.templateId);
-    if (!template)
+    if (mode === "multiplaces" && !template)
       return res.status(400).json({ error: "Choose an available template." });
     if (!req.file)
       return res
         .status(400)
         .json({
           error: "Upload a JPG, PNG or WebP group photo (up to 15 MB).",
-        });
-    if (req.body.confirmed !== "true")
-      return res
-        .status(400)
-        .json({
-          error:
-            "Confirm that exactly three people are visible and everyone agrees to this edit.",
         });
     if (!process.env.OPENAI_API_KEY)
       return res
@@ -113,21 +107,25 @@ app.post(
         "model",
         process.env.OPENAI_IMAGE_MODEL || "gpt-image-2.5-flare",
       );
-      form.append(
-        "image[]",
-        new Blob(
-          [await readFile(path.join(root, "Template Images", template.file))],
-          { type: "image/png" },
-        ),
-        "template.png",
-      );
+      if (mode === "multiplaces")
+        form.append(
+          "image[]",
+          new Blob(
+            [await readFile(path.join(root, "Template Images", template.file))],
+            { type: "image/png" },
+          ),
+          "template.png",
+        );
       form.append(
         "image[]",
         new Blob([photo], { type: "image/webp" }),
         "group.webp",
       );
-      form.append("prompt", editPrompt(template));
-      form.append("size", "1536x2304");
+      form.append(
+        "prompt",
+        mode === "ghibli" ? ghibliPrompt() : editPrompt(template),
+      );
+      form.append("size", mode === "ghibli" ? "auto" : "1536x2304");
       form.append("quality", "max");
       form.append("output_format", "png");
       form.append("n", "1");
