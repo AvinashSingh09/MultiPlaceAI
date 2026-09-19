@@ -369,7 +369,7 @@ function App() {
             </section>
           )}
           {step === 1 && (
-            <section className={`capture-layout ${isGhibli ? "solo" : ""}`}>
+          <section className="capture-layout solo">
               <div className="capture-main">
                 <button
                   className="text-button"
@@ -533,28 +533,8 @@ function App() {
                     )}
                   </>
                 )}
-                <p className="privacy-note">
-                  Your photo is sent to OpenAI only when you create your image.
-                  This app does not save your photos.
-                </p>
-              </div>
-              {!isGhibli && <aside className="selected-aside">
-                <span className="eyebrow">YOUR CHOSEN TEMPLATE</span>
-                <img
-                  src={selected?.image}
-                  alt="Selected travel collage template"
-                />
-                <h3>{selected?.name}</h3>
-                <p>Three people. Four destinations.</p>
-                <div className="mapping-note">
-                  <Users size={18} />
-                  <span>
-                    The same three faces appear in every scene, in the order shown
-                    in your photo.
-                  </span>
-                </div>
-              </aside>}
-            </section>
+            </div>
+          </section>
           )}
           {step === 2 && (
             <section className="result-layout">

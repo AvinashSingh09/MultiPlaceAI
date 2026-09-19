@@ -155,8 +155,9 @@ a.primary:hover {
   line-height: 1.85;
 }
 .ghibli-start-button {
-  min-width: 230px;
-  justify-content: space-between;
+  min-width: 190px;
+  justify-content: center;
+  gap: 18px;
 }
 .ghibli-steps {
   display: flex;
