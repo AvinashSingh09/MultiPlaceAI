@@ -1,0 +1,50 @@
+# MultiPlaces
+
+A minimal React + Tailwind photo studio backed by Express and the OpenAI Image Edits API.
+
+## Run locally
+
+Requires Node.js 22 or newer.
+
+```powershell
+npm install
+Copy-Item .env.example .env
+# Set OPENAI_API_KEY in .env (never use a VITE_ variable for secrets).
+# Set CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET. The preset must be unsigned.
+npm run dev
+```
+
+Open http://localhost:5173. The API runs on port 3001. Camera access works on localhost or HTTPS; allow your browser to use your webcam. Upload supports JPG, PNG and WebP, up to 15 MB.
+
+## Flow
+
+1. Select the supplied Around the world template.
+2. Capture or upload a photograph of three people. The camera preview and saved capture use the same mirrored orientation.
+3. Confirm the three-person count and permission to edit. This version uses explicit human confirmation, not automatic face counting.
+4. Generate and download a PNG. The same people are mapped left-to-right into each of the four panels.
+5. The generated postcard is uploaded to Cloudinary and a QR code is created for its public URL.
+
+The server submits the original template first and the group photo second to `/v1/images/edits`, using `gpt-image-2.5-flare`, maximum quality, and 1536×2304 output (2.25 times the previous pixel count). Model access and billing must be enabled on your OpenAI project. Edit results are probabilistic: exact facial likeness and perfect preservation of every template detail cannot be guaranteed.
+
+## Templates
+
+Add image files to `Template Images` and register them in `server/templates.js`. The supplied prompt currently targets the provided four-panel, three-person layout; update it when supporting other layouts. The gallery is populated from the server catalog.
+
+## Build and verification
+
+```powershell
+npm test
+npm run build
+npm start
+```
+
+The production build is served at http://localhost:3001. The server binds to loopback; use a same-origin HTTPS reverse proxy when hosting. Before public hosting, add authentication and account-level generation quotas. The current in-memory IP limiter is intended for local/single-instance use, not public billing protection. Set proxy trust deliberately if deploying behind a proxy.
+
+Photos are held in memory and are not written to disk by this app. Generation sends both source images to OpenAI, then stores the generated postcard in the `multiplaces` folder in Cloudinary so it can be shared publicly by QR code. OpenAI's and Cloudinary's retention policies apply. Delete shared postcards from Cloudinary when they are no longer needed. EXIF data is removed and image orientation normalized on upload. Automatic retries are disabled to avoid duplicate billed edits.
+
+Tests mock OpenAI and verify multipart image ordering, the selected model, input validation, and failure responses. They do not verify real model output or camera hardware.
+
+Official references: https://developers.openai.com/api/docs/models/gpt-image-2.5-flare and https://developers.openai.com/api/reference/resources/images/methods/edit
+
+Reference photos are normalized as lossless WebP with a 3072-pixel edge limit. Camera capture requests 4K where supported, but actual resolution depends on the webcam. Maximum-quality generation may increase latency and API costs. Use a sharply focused, well-lit original group photo with faces large in the frame; extra output pixels cannot recover missing reference detail.
+
