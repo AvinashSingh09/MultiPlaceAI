@@ -753,6 +753,12 @@ h2 {
     padding: 42px;
   }
   .ghibli-showcase {
+    order: 1;
+  }
+  .ghibli-copy {
+    order: 2;
+  }
+  .ghibli-showcase {
     width: min(100%, 500px);
     margin: auto;
   }
