@@ -21,7 +21,10 @@ app.use("/api", (_req, res, next) => {
 app.get("/health", (_req, res) => res.status(200).send("OK"));
 app.get("/api/templates", (_req, res) =>
   res.json(
-    templates.map(({ file, ...t }) => ({ ...t, image: `/templates/${file}` })),
+    templates.map(({ file, brandFooterStart, ...t }) => ({
+      ...t,
+      image: `/templates/${file}`,
+    })),
   ),
 );
 app.get("/api/health", (_req, res) =>
@@ -150,7 +153,38 @@ app.post(
           });
       }
       if (!data.data?.[0]?.b64_json) throw new Error("Missing image output");
-      const imageBuffer = Buffer.from(data.data[0].b64_json, "base64");
+      let imageBuffer = Buffer.from(data.data[0].b64_json, "base64");
+      if (mode === "multiplaces") {
+        const templatePath = path.join(root, "Template Images", template.file);
+        const [outputMetadata, templateMetadata] = await Promise.all([
+          sharp(imageBuffer).metadata(),
+          sharp(templatePath).metadata(),
+        ]);
+        if (
+          !outputMetadata.width ||
+          !outputMetadata.height ||
+          !templateMetadata.height
+        )
+          throw new Error("Could not preserve template branding");
+        const footerTop = Math.round(
+          (template.brandFooterStart / templateMetadata.height) *
+            outputMetadata.height,
+        );
+        const footer = await sharp(templatePath)
+          .resize(outputMetadata.width, outputMetadata.height, { fit: "fill" })
+          .extract({
+            left: 0,
+            top: footerTop,
+            width: outputMetadata.width,
+            height: outputMetadata.height - footerTop,
+          })
+          .png()
+          .toBuffer();
+        imageBuffer = await sharp(imageBuffer)
+          .composite([{ input: footer, left: 0, top: footerTop }])
+          .png()
+          .toBuffer();
+      }
       const cloudinaryForm = new FormData();
       cloudinaryForm.append(
         "file",
@@ -190,7 +224,7 @@ app.post(
         color: { dark: "#293226", light: "#ffffff" },
       });
       res.json({
-        image: `data:image/png;base64,${data.data[0].b64_json}`,
+        image: `data:image/png;base64,${imageBuffer.toString("base64")}`,
         shareUrl,
         qrCode,
       });

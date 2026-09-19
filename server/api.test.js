@@ -80,13 +80,24 @@ test("generation validates requests and sends both images in order", async () =>
       ["template.png", "group.webp"],
     );
     assert.match(f.get("prompt"), /SAME three identities/);
+    assert.match(f.get("prompt"), /Veeva logo exactly as shown/);
     assert.equal(f.get("size"), "1536x2304");
     assert.equal(f.get("quality"), "max");
     const reference = f.getAll("image[]")[1];
     const metadata = await sharp(Buffer.from(await reference.arrayBuffer())).metadata();
     assert.equal(metadata.format, "webp");
     assert.equal(metadata.width, 30); // Small references must not be artificially enlarged.
-    return new Response(JSON.stringify({ data: [{ b64_json: "result" }] }), {
+    const generatedPng = await sharp({
+      create: {
+        width: 1200,
+        height: 1800,
+        channels: 4,
+        background: { r: 20, g: 40, b: 60, alpha: 1 },
+      },
+    }).png().toBuffer();
+    return new Response(JSON.stringify({
+      data: [{ b64_json: generatedPng.toString("base64") }],
+    }), {
       status: 200,
     });
   };
@@ -96,7 +107,7 @@ test("generation validates requests and sends both images in order", async () =>
   });
   assert.equal(r.status, 200);
   const generated = await r.json();
-  assert.equal(generated.image, "data:image/png;base64,result");
+  assert.match(generated.image, /^data:image\/png;base64,/);
   assert.equal(
     generated.shareUrl,
     "https://res.cloudinary.com/test-cloud/image/upload/postcard.png",
