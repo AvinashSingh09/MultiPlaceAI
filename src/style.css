@@ -86,6 +86,7 @@ a.primary:hover {
   padding: 36px 20px 28px;
 }
 .site-header {
+  position: relative;
   min-height: 82px;
   margin: 0 5.5%;
   display: grid;
@@ -103,8 +104,21 @@ a.primary:hover {
   width: 100%;
   height: auto;
 }
-.site-header-spacer {
-  width: 150px;
+.fullscreen-toggle {
+  width: 42px;
+  height: 42px;
+  justify-self: end;
+  display: grid;
+  place-items: center;
+  color: #35402d;
+  background: #eeefe8;
+  border: 1px solid #cfd4c3;
+  border-radius: 50%;
+  transition: background 160ms ease, transform 160ms ease;
+}
+.fullscreen-toggle:hover {
+  background: #e4e7dc;
+  transform: translateY(-1px);
 }
 .mode-switch {
   width: min(100% - 32px, 390px);
@@ -765,8 +779,7 @@ h2 {
   .site-header {
     margin: 0 24px;
   }
-  .site-logo,
-  .site-header-spacer {
+  .site-logo {
     width: 120px;
   }
   .ghibli-start {
@@ -812,8 +825,10 @@ h2 {
     width: 116px;
     justify-self: center;
   }
-  .site-header-spacer {
-    display: none;
+  .fullscreen-toggle {
+    position: absolute;
+    top: 18px;
+    right: 0;
   }
   .mode-switch {
     width: min(100%, 360px);

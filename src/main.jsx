@@ -18,6 +18,8 @@ import {
   Download,
   RotateCcw,
   SwitchCamera,
+  Maximize2,
+  Minimize2,
   X,
   LoaderCircle,
 } from "lucide-react";
@@ -47,6 +49,7 @@ function App() {
     [capturing, setCapturing] = useState(false),
     [opening, setOpening] = useState(false),
     [facingMode, setFacingMode] = useState("user"),
+    [fullscreen, setFullscreen] = useState(false),
     [configured, setConfigured] = useState(null);
   const video = useRef(null),
     stream = useRef(null),
@@ -113,6 +116,40 @@ function App() {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = previous; };
   }, [busy]);
+  useEffect(() => {
+    const updateFullscreen = () =>
+      setFullscreen(
+        Boolean(document.fullscreenElement || document.webkitFullscreenElement),
+      );
+    document.addEventListener("fullscreenchange", updateFullscreen);
+    document.addEventListener("webkitfullscreenchange", updateFullscreen);
+    updateFullscreen();
+    return () => {
+      document.removeEventListener("fullscreenchange", updateFullscreen);
+      document.removeEventListener("webkitfullscreenchange", updateFullscreen);
+    };
+  }, []);
+  async function toggleFullscreen() {
+    setError("");
+    const isFullscreen =
+      document.fullscreenElement || document.webkitFullscreenElement;
+    try {
+      if (isFullscreen) {
+        const exit = document.exitFullscreen || document.webkitExitFullscreen;
+        if (!exit) throw Error("Fullscreen is not supported on this device.");
+        await exit.call(document);
+      } else {
+        const root = document.documentElement;
+        const enter = root.requestFullscreen || root.webkitRequestFullscreen;
+        if (!enter) throw Error("Fullscreen is not supported on this device.");
+        await enter.call(root);
+      }
+    } catch (fullscreenError) {
+      setError(
+        fullscreenError.message || "Fullscreen could not be opened on this device.",
+      );
+    }
+  }
   function stopCamera() {
     cameraToken.current++;
     stream.current?.getTracks().forEach((t) => t.stop());
@@ -292,7 +329,14 @@ function App() {
               MultiPlaces
             </button>
           </nav>
-          <span className="site-header-spacer" aria-hidden="true" />
+          <button
+            className="fullscreen-toggle"
+            onClick={toggleFullscreen}
+            aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+            title={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+          >
+            {fullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+          </button>
         </header>
         <main className="flex-1">
           <Routes>
