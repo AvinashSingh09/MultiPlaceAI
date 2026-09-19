@@ -26,6 +26,11 @@ function form({ id = "world-tour", confirmed = "true", buffer = photo } = {}) {
   f.append("photo", new Blob([buffer], { type: "image/png" }), "photo.png");
   return f;
 }
+test("health endpoint returns 200 OK", async () => {
+  const r = await originalFetch(base + "/health");
+  assert.equal(r.status, 200);
+  assert.equal(await r.text(), "OK");
+});
 test("catalog exposes template without local file paths", async () => {
   const r = await originalFetch(base + "/api/templates");
   const d = await r.json();

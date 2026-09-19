@@ -18,6 +18,7 @@ app.use("/api", (_req, res, next) => {
   res.set("Cache-Control", "no-store");
   next();
 });
+app.get("/health", (_req, res) => res.status(200).send("OK"));
 app.get("/api/templates", (_req, res) =>
   res.json(
     templates.map(({ file, ...t }) => ({ ...t, image: `/templates/${file}` })),
