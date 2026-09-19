@@ -306,7 +306,7 @@ function App() {
   return (
     <>
       <div className="min-h-screen flex flex-col" inert={busy ? true : undefined}>
-        <header className="site-header">
+        <header className={`site-header ${fullscreen ? "is-fullscreen" : ""}`}>
           <button className="site-logo" onClick={() => switchMode(mode)}>
             <img
               src="/templates/Veeva_Systems_Logo.svg"

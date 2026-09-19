@@ -104,6 +104,9 @@ a.primary:hover {
   width: 100%;
   height: auto;
 }
+.site-header.is-fullscreen .site-logo {
+  margin-left: max(56px, env(safe-area-inset-left));
+}
 .fullscreen-toggle {
   width: 42px;
   height: 42px;
@@ -824,6 +827,9 @@ h2 {
   .site-logo {
     width: 116px;
     justify-self: center;
+  }
+  .site-header.is-fullscreen .site-logo {
+    margin-left: 0;
   }
   .fullscreen-toggle {
     position: absolute;
