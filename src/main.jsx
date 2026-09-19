@@ -17,6 +17,7 @@ import {
   Users,
   Download,
   RotateCcw,
+  SwitchCamera,
   X,
   LoaderCircle,
 } from "lucide-react";
@@ -45,6 +46,7 @@ function App() {
     [ready, setReady] = useState(false),
     [capturing, setCapturing] = useState(false),
     [opening, setOpening] = useState(false),
+    [facingMode, setFacingMode] = useState("user"),
     [configured, setConfigured] = useState(null);
   const video = useRef(null),
     stream = useRef(null),
@@ -120,9 +122,13 @@ function App() {
     setCapturing(false);
     setOpening(false);
   }
-  async function startCamera() {
+  async function startCamera(requestedFacingMode = facingMode) {
     setError("");
     setOpening(true);
+    setReady(false);
+    stream.current?.getTracks().forEach((t) => t.stop());
+    stream.current = null;
+    setCamera(false);
     const token = ++cameraToken.current;
     try {
       if (!navigator.mediaDevices?.getUserMedia)
@@ -131,7 +137,7 @@ function App() {
         );
       const s = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: "user",
+          facingMode: { ideal: requestedFacingMode },
           width: { ideal: 3840 },
           height: { ideal: 2160 },
         },
@@ -142,6 +148,7 @@ function App() {
         return;
       }
       stream.current = s;
+      setFacingMode(requestedFacingMode);
       setCamera(true);
     } catch (e) {
       setError(
@@ -152,6 +159,10 @@ function App() {
     } finally {
       setOpening(false);
     }
+  }
+  function switchCamera() {
+    if (opening || capturing) return;
+    startCamera(facingMode === "user" ? "environment" : "user");
   }
   function choosePhoto(file) {
     if (!file) return;
@@ -185,8 +196,10 @@ function App() {
     canvas.width = Math.round(cropWidth);
     canvas.height = Math.round(cropHeight);
     const ctx = canvas.getContext("2d");
-    ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1);
+    if (facingMode === "user") {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
     ctx.drawImage(source,
       (source.videoWidth - cropWidth) / 2,
       (source.videoHeight - cropHeight) / 2,
@@ -404,7 +417,7 @@ function App() {
                         muted
                         playsInline
                         onCanPlay={() => setReady(true)}
-                        className="camera-video"
+                        className={`camera-video ${facingMode === "environment" ? "rear-camera" : ""}`}
                       />
                       {!isGhibli && <div className="face-guides" aria-hidden="true">
                         {[1, 2, 3].map((n) => (
@@ -414,6 +427,15 @@ function App() {
                           </div>
                         ))}
                       </div>}
+                      <button
+                        className="switch-camera"
+                        aria-label={facingMode === "user" ? "Use rear camera" : "Use front camera"}
+                        title={facingMode === "user" ? "Use rear camera" : "Use front camera"}
+                        onClick={switchCamera}
+                        disabled={opening || capturing}
+                      >
+                        <SwitchCamera size={19} />
+                      </button>
                       <button
                         className="close-camera"
                         aria-label="Close camera"
@@ -437,7 +459,7 @@ function App() {
                       </p>
                       <button
                         className="primary"
-                        onClick={startCamera}
+                        onClick={() => startCamera()}
                         disabled={opening}
                       >
                         <Camera size={17} />
