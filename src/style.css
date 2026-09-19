@@ -501,6 +501,9 @@ h2 {
   font-size: 12px;
   color: #606b50;
 }
+.capture-main > .camera-frame {
+  margin-top: 16px;
+}
 .camera-frame {
   aspect-ratio: 16/10;
   background: #e9ece2;

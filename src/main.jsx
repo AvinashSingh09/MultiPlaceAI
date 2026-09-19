@@ -382,27 +382,6 @@ function App() {
                   <ArrowLeft size={15} />
                   Back
                 </button>
-                <p className="eyebrow mt-8">
-                  {isGhibli ? "YOUR ANIMATED PORTRAIT" : "BETTER WITH ALL THREE OF YOU"}
-                </p>
-                <h2>
-                  {photo
-                    ? isGhibli
-                      ? "Ready to transform."
-                      : "Looking good together."
-                    : isGhibli
-                      ? "Capture your photo."
-                      : "Get your people in the frame."}
-                </h2>
-                <p className="muted mt-3 mb-7">
-                  {photo
-                    ? isGhibli
-                      ? "Check the photo before creating your illustration."
-                      : "Check the photo and the left-to-right order before you continue."
-                    : isGhibli
-                      ? "Use a clear, well-lit photo for the best illustrated result."
-                      : "Stand side by side, face the camera, and find a little good light."}
-                </p>
                 <div className={`camera-frame ${photo ? "has-photo" : ""} ${isGhibli ? "portrait-frame" : ""}`}>
                   {photo ? (
                     <img
