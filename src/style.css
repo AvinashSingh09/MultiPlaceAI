@@ -143,40 +143,14 @@ a.primary:hover {
   border-radius: 18px;
   background: #eef0e6;
 }
-.ghibli-copy h1 {
-  margin-top: 20px;
-  font-size: clamp(42px, 5vw, 68px);
-}
-.ghibli-description {
-  max-width: 470px;
-  margin: 24px 0 30px;
-  color: #737b6c;
-  font-size: 14px;
-  line-height: 1.85;
+.ghibli-copy {
+  display: grid;
+  place-items: center;
 }
 .ghibli-start-button {
   min-width: 190px;
   justify-content: center;
   gap: 18px;
-}
-.ghibli-steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 22px;
-  margin-top: 34px;
-  color: #747c6c;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.ghibli-steps span {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-.ghibli-steps b {
-  color: #65753f;
-  font-weight: 700;
 }
 .ghibli-showcase {
   position: relative;
@@ -841,18 +815,8 @@ h2 {
     padding: 30px 22px 24px;
     gap: 30px;
   }
-  .ghibli-copy h1 {
-    font-size: 43px;
-  }
-  .ghibli-description {
-    font-size: 13px;
-  }
   .ghibli-start-button {
     width: 100%;
-  }
-  .ghibli-steps {
-    justify-content: space-between;
-    gap: 10px;
   }
   .ghibli-showcase {
     border-width: 8px;

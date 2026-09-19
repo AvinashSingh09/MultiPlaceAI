@@ -338,28 +338,15 @@ function App() {
           )}
           {isGhibli && step === 0 && (
             <section className="ghibli-start">
-              <div className="ghibli-copy">
-                <p className="eyebrow">HAND-PAINTED PORTRAITS</p>
-                <h1>
-                  Turn a moment into an <span>illustrated story.</span>
-                </h1>
-                <p className="ghibli-description">
-                  Take a photo and reimagine the whole scene with warm color,
-                  expressive detail, and the softness of a hand-painted film.
-                </p>
-                <button
-                  className="primary ghibli-start-button"
+            <div className="ghibli-copy">
+              <button
+                className="primary ghibli-start-button"
                   onClick={() => navigate("/ghibli/capture")}
                 >
-                  Start
-                  <ArrowRight size={18} />
-                </button>
-                <div className="ghibli-steps" aria-label="How it works">
-                  <span><b>01</b> Capture</span>
-                  <span><b>02</b> Transform</span>
-                  <span><b>03</b> Share</span>
-                </div>
-              </div>
+                Start
+                <ArrowRight size={18} />
+              </button>
+            </div>
               <figure className="ghibli-showcase">
                 <img
                   src="/templates/ghibli-style.png"
