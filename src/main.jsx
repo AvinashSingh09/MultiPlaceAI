@@ -70,6 +70,8 @@ function encodeCameraFrame(canvas, type, quality) {
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
+  const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   const isGhibli = location.pathname.startsWith("/ghibli");
   const mode = isGhibli ? "ghibli" : "multiplaces";
   const step = location.pathname.endsWith("/capture")
@@ -97,7 +99,8 @@ function App() {
     stream = useRef(null),
     cameraToken = useRef(0),
     automaticCameraPath = useRef(""),
-    fileInput = useRef(null);
+    fileInput = useRef(null),
+    nativeCameraInput = useRef(null);
   useEffect(() => {
     fetch("/api/templates")
       .then((r) => {
@@ -140,6 +143,7 @@ function App() {
       return;
     }
     if (
+      !isMobileDevice &&
       !photo &&
       !camera &&
       !opening &&
@@ -148,7 +152,7 @@ function App() {
       automaticCameraPath.current = location.pathname;
       startCamera();
     }
-  }, [step, photo, camera, opening, location.pathname]);
+  }, [step, photo, camera, opening, location.pathname, isMobileDevice]);
   useEffect(() => {
     if (step === 2 && !result) navigate(`/${mode}`, { replace: true });
   }, [step, result, mode, navigate]);
@@ -256,6 +260,10 @@ function App() {
     }
     stopCamera();
     setPhoto(file);
+  }
+  function onPhotoSelected(event) {
+    choosePhoto(event.target.files?.[0]);
+    event.target.value = "";
   }
   async function capture() {
     if (capturing) return;
@@ -548,13 +556,24 @@ function App() {
                           ? "Keep faces clear and the full scene inside the frame."
                           : "Keep every face visible, with a little space between you."}
                       </p>
+                      {isMobileDevice && (
+                        <button
+                          className="primary"
+                          type="button"
+                          onClick={() => nativeCameraInput.current.click()}
+                          disabled={opening}
+                        >
+                          <Camera size={17} />
+                          Take photo with phone camera
+                        </button>
+                      )}
                       <button
-                        className="primary"
+                        className={isMobileDevice ? "text-button" : "primary"}
                         onClick={() => startCamera()}
                         disabled={opening}
                       >
                         <Camera size={17} />
-                        {opening ? "Opening camera…" : "Open camera"}
+                        {opening ? "Opening camera…" : isMobileDevice ? "Use browser camera" : "Open camera"}
                       </button>
                       <button
                         className="text-button"
@@ -571,11 +590,18 @@ function App() {
                   className="hidden"
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
-                  onChange={(e) => {
-                    choosePhoto(e.target.files?.[0]);
-                    e.target.value = "";
-                  }}
+                  onChange={onPhotoSelected}
                 />
+                {isMobileDevice && (
+                  <input
+                    ref={nativeCameraInput}
+                    className="hidden"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={onPhotoSelected}
+                  />
+                )}
                 {camera && (
                   <div className="capture-controls">
                     <span>{isGhibli ? "Keep the scene inside the frame" : "Move closer and face the light so all three faces are clear."}</span>
