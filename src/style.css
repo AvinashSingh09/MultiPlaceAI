@@ -721,11 +721,11 @@ h2 {
   flex-shrink: 0;
 }
 .result-layout {
-  max-width: 620px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  align-items: center;
+  max-width: 900px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 30%);
+  gap: clamp(12px, 4vw, 36px);
+  align-items: start;
   margin: 35px auto 65px;
   padding: 0 25px;
 }
@@ -738,12 +738,38 @@ h2 {
   display: block;
   width: 100%;
 }
+.result-sidebar,
 .result-actions {
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  text-align: center;
+}
+.result-actions > * {
   justify-content: center;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 24px;
+}
+@media screen and (max-width: 640px) {
+  .result-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(115px, 36%);
+    padding-inline: 12px;
+  }
+  .result-image {
+    padding: 5px;
+  }
+  .result-actions .primary {
+    padding-inline: 8px;
+    font-size: 12px;
+  }
+}
+.photo-print-frame {
+  position: fixed;
+  width: 0;
+  height: 0;
+  border: 0;
+}
+@page result-photo {
+  margin: 0;
 }
 @media print {
   body:has(.result-layout) {
@@ -760,13 +786,14 @@ h2 {
     display: none;
   }
   .result-layout {
+    page: result-photo;
     display: block;
     max-width: none;
     margin: 0;
     padding: 0;
   }
   .result-image {
-    padding: 0;
+    padding: 8mm;
     box-shadow: none;
     break-inside: avoid;
   }
@@ -790,7 +817,8 @@ h2 {
 }
 .share-qr img {
   width: 160px;
-  height: 160px;
+  max-width: 100%;
+  height: auto;
   padding: 8px;
   background: white;
   border: 1px solid #dcded5;

@@ -308,6 +308,42 @@ function App() {
     setError("");
     navigate(`/${mode}`);
   }
+  function printPhoto() {
+    const frame = document.createElement("iframe");
+    frame.className = "photo-print-frame";
+    frame.title = "Photo print";
+    frame.setAttribute("aria-hidden", "true");
+    frame.tabIndex = -1;
+    frame.srcdoc = `<!doctype html>
+      <html><head><meta charset="utf-8"><style>
+        @page { margin: 0; }
+        html, body { margin: 0; }
+        body { box-sizing: border-box; padding: 8mm; }
+        img {
+          display: block;
+          width: auto;
+          height: auto;
+          max-width: 100%;
+          max-height: 230mm;
+          margin: 0 auto;
+        }
+      </style></head><body><img alt=""></body></html>`;
+    frame.onload = async function loadPhoto() {
+      const printWindow = frame.contentWindow;
+      const image = printWindow.document.querySelector("img");
+      image.src = result;
+      try {
+        await image.decode();
+        printWindow.addEventListener("afterprint", () => frame.remove(), { once: true });
+        printWindow.focus();
+        printWindow.print();
+      } catch {
+        frame.remove();
+        setError("Could not print the photo. Please try again.");
+      }
+    };
+    document.body.append(frame);
+  }
   function switchMode(nextMode) {
     stopCamera();
     setPhoto(null);
@@ -587,40 +623,42 @@ function App() {
               <div className="result-image">
                 <img src={result} alt="Your generated travel postcard" />
               </div>
-              {qrCode && shareUrl && (
-                <a
-                  className="share-qr"
-                  href={shareUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label="Open shared postcard"
-                >
-                  <img src={qrCode} alt="QR code linking to your shared postcard" />
-                  <span>Scan to open and share</span>
-                </a>
-              )}
-              <div className="result-actions">
-                <a
-                  className="primary"
-                  href={result}
-                  download={isGhibli ? "ghibli-portrait.png" : "multiplaces-postcard.png"}
-                >
-                  <Download size={18} />
-                  Download postcard
-                </a>
-                <button
-                  className="text-button"
-                  type="button"
-                  onClick={() => window.print()}
-                >
-                  <Printer size={18} />
-                  Print
-                </button>
-                <button className="text-button" onClick={reset}>
-                  <ArrowLeft size={15} />
-                  Back
-                </button>
-              </div>
+              <aside className="result-sidebar">
+                {qrCode && shareUrl && (
+                  <a
+                    className="share-qr"
+                    href={shareUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="Open shared postcard"
+                  >
+                    <img src={qrCode} alt="QR code linking to your shared postcard" />
+                    <span>Scan to open and share</span>
+                  </a>
+                )}
+                <div className="result-actions">
+                  <a
+                    className="primary"
+                    href={result}
+                    download={isGhibli ? "ghibli-portrait.png" : "multiplaces-postcard.png"}
+                  >
+                    <Download size={18} />
+                    Download postcard
+                  </a>
+                  <button
+                    className="text-button"
+                    type="button"
+                    onClick={printPhoto}
+                  >
+                    <Printer size={18} />
+                    Print
+                  </button>
+                  <button className="text-button" onClick={reset}>
+                    <ArrowLeft size={15} />
+                    Back
+                  </button>
+                </div>
+              </aside>
             </section>
           )}
         </main>
