@@ -16,6 +16,7 @@ import {
   Check,
   Users,
   Download,
+  Printer,
   RotateCcw,
   SwitchCamera,
   Maximize2,
@@ -607,6 +608,14 @@ function App() {
                   <Download size={18} />
                   Download postcard
                 </a>
+                <button
+                  className="text-button"
+                  type="button"
+                  onClick={() => window.print()}
+                >
+                  <Printer size={18} />
+                  Print
+                </button>
                 <button className="text-button" onClick={reset}>
                   <ArrowLeft size={15} />
                   Back

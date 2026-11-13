@@ -745,6 +745,39 @@ h2 {
   flex-wrap: wrap;
   gap: 24px;
 }
+@media print {
+  body:has(.result-layout) {
+    background: white;
+  }
+  #root:has(.result-layout) > div {
+    display: block;
+    min-height: 0;
+  }
+  #root:has(.result-layout) header,
+  #root:has(.result-layout) footer,
+  #root:has(.result-layout) main > :not(.result-layout),
+  .result-layout > :not(.result-image) {
+    display: none;
+  }
+  .result-layout {
+    display: block;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+  .result-image {
+    padding: 0;
+    box-shadow: none;
+    break-inside: avoid;
+  }
+  .result-image img {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 230mm;
+    margin: 0 auto;
+  }
+}
 .share-qr {
   display: flex;
   flex-direction: column;
