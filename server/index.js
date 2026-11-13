@@ -129,7 +129,7 @@ app.post(
         mode === "ghibli" ? ghibliPrompt() : editPrompt(template),
       );
       form.append("size", mode === "ghibli" ? "auto" : "1536x2304");
-      form.append("quality", "high");
+      form.append("quality", "medium");
       form.append("output_format", "png");
       form.append("n", "1");
       const response = await fetch("https://api.openai.com/v1/images/edits", {

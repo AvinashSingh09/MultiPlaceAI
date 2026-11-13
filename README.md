@@ -25,7 +25,7 @@ Use the switch at the top to choose one of two routed experiences:
 
 The flows use `/multiplaces/*` and `/ghibli/*` routes, so browser Back and Forward navigation works between their start, capture, and result pages. Generated images can be downloaded and are uploaded to Cloudinary for QR-code sharing.
 
-The server submits the original template first and the group photo second to `/v1/images/edits`, using `gpt-image-2.5-flare`, maximum quality, and 1536×2304 output (2.25 times the previous pixel count). Model access and billing must be enabled on your OpenAI project. Edit results are probabilistic: exact facial likeness and perfect preservation of every template detail cannot be guaranteed.
+The server submits the original template first and the group photo second to `/v1/images/edits`, using `gpt-image-2.5-flare` by default, `high` quality, and 1536×2304 output. The server restores the branded footer from the template. Model access and billing must be enabled on your OpenAI project. Facial likeness and proportions can vary between edits.
 
 ## Templates
 
