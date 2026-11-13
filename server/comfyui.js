@@ -59,7 +59,7 @@ export async function swapPostcardFaces(baseUrl, templateImage, photo) {
       class_type: "ReActorFaceBoost",
       inputs: {
         enabled: true, boost_model: "codeformer-v0.1.0.pth", interpolation: "Bicubic",
-        visibility: 1, codeformer_weight: 0.5, restore_with_main_after: false,
+        visibility: 1, codeformer_weight: 0.5, restore_with_main_after: true,
       },
     },
   };
@@ -72,12 +72,20 @@ export async function swapPostcardFaces(baseUrl, templateImage, photo) {
       class_type: "ReActorFaceSwapOpt",
       inputs: {
         enabled: true, input_image: [`crop${index}`, 0], source_image: ["reference", 0],
-        options: ["options", 0], face_boost: ["boost", 0], swap_model: "hyperswap_1a_256.onnx",
-        facedetection: "retinaface_resnet50", face_restore_model: "codeformer-v0.1.0.pth",
-        face_restore_visibility: 1, codeformer_weight: 0.25,
+        options: ["options", 0], face_boost: ["boost", 0], swap_model: "inswapper_128.onnx",
+        facedetection: "YOLOv5l", face_restore_model: "GFPGANv1.4.pth",
+        face_restore_visibility: 1, codeformer_weight: 0.65,
       },
     };
-    graph[`preview${index}`] = { class_type: "PreviewImage", inputs: { images: [`swap${index}`, 0] } };
+    graph[`restore${index}`] = {
+      class_type: "ReActorRestoreFaceAdvanced",
+      inputs: {
+        image: [`swap${index}`, 0], facedetection: "YOLOv5l", model: "GFPGANv1.4.pth",
+        visibility: 1, codeformer_weight: 0.7, face_selection: "all",
+        sort_by: "area", reverse_order: false, take_start: 0, take_count: 1,
+      },
+    };
+    graph[`preview${index}`] = { class_type: "PreviewImage", inputs: { images: [`restore${index}`, 0] } };
   }
   const job = await (await request("/prompt", {
     method: "POST", headers: { "Content-Type": "application/json" },

@@ -20,7 +20,7 @@ Open http://localhost:5173. The API runs on port 3001. Camera access works on lo
 
 Select a template and capture or upload a photograph of three people. MultiPlaces maps the same people left-to-right across all four panels. The flow uses `/multiplaces/*` routes for the gallery, capture, and result pages. You can download or print the result and share it via a Cloudinary QR code.
 
-Run ComfyUI with ReActor, `hyperswap_1a_256.onnx`, and `codeformer-v0.1.0.pth` installed. The app matches three detected faces from left to right in each panel and restores the original postcard layout. Cloudinary handles QR sharing.
+Run ComfyUI with ReActor, `inswapper_128.onnx`, `codeformer-v0.1.0.pth`, and `GFPGANv1.4.pth` installed. Each panel uses YOLOv5l, CodeFormer face boosting, and GFPGAN restoration, followed by an advanced GFPGAN pass on all faces. The app matches three detected faces from left to right in each panel and preserves the original postcard layout. Cloudinary handles QR sharing.
 
 For Render, point the Cloudflare Tunnel at `http://127.0.0.1:8000` on the computer running ComfyUI. Set `COMFYUI_URL` in Render to the tunnel's HTTPS hostname. Protect the hostname with a Cloudflare Access Service Auth policy and set `COMFYUI_ACCESS_CLIENT_ID` and `COMFYUI_ACCESS_CLIENT_SECRET` as server environment variables. The backend sends these credentials with ComfyUI requests.
 

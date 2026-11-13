@@ -84,12 +84,20 @@ test("MultiPlaces validates inputs and routes face swaps through ComfyUI", async
         graph = JSON.parse(options.body).prompt;
         assert.equal(graph.options.inputs.source_faces_order, "left-right");
         assert.equal(graph.options.inputs.source_faces_index, "0,1,2");
+        assert.equal(graph.boost.inputs.restore_with_main_after, true);
         for (let index = 0; index < 4; index++) {
           const { inputs } = graph["swap" + index];
-          assert.equal(inputs.swap_model, "hyperswap_1a_256.onnx");
-          assert.equal(inputs.facedetection, "retinaface_resnet50");
-          assert.equal(inputs.codeformer_weight, 0.25);
+          assert.equal(inputs.swap_model, "inswapper_128.onnx");
+          assert.equal(inputs.facedetection, "YOLOv5l");
+          assert.equal(inputs.face_restore_model, "GFPGANv1.4.pth");
+          assert.equal(inputs.codeformer_weight, 0.65);
           assert.deepEqual(inputs.input_image, ["crop" + index, 0]);
+          const restore = graph["restore" + index];
+          assert.equal(restore.class_type, "ReActorRestoreFaceAdvanced");
+          assert.equal(restore.inputs.model, "GFPGANv1.4.pth");
+          assert.equal(restore.inputs.face_selection, "all");
+          assert.deepEqual(restore.inputs.image, ["swap" + index, 0]);
+          assert.deepEqual(graph["preview" + index].inputs.images, ["restore" + index, 0]);
         }
         return Response.json({ prompt_id: "test-job" });
       case "/history/test-job":
