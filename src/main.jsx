@@ -224,33 +224,46 @@ function App() {
     }
     setCapturing(true);
     setError("");
-    const canvas = document.createElement("canvas");
-    // Match object-fit: cover in the portrait preview with a centered 3:4 crop.
-    const cropWidth = isGhibli
-      ? Math.min(source.videoWidth, source.videoHeight * 3 / 4)
-      : source.videoWidth;
-    const cropHeight = isGhibli ? cropWidth * 4 / 3 : source.videoHeight;
-    canvas.width = Math.round(cropWidth);
-    canvas.height = Math.round(cropHeight);
-    const ctx = canvas.getContext("2d");
-    if (facingMode === "user") {
-      ctx.translate(canvas.width, 0);
-      ctx.scale(-1, 1);
-    }
-    ctx.drawImage(source,
-      (source.videoWidth - cropWidth) / 2,
-      (source.videoHeight - cropHeight) / 2,
-      cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise((resolve) =>
-      canvas.toBlob(resolve, "image/webp", 1),
-    );
-    if (blob)
-      choosePhoto(
-        new File([blob], "group-photo.webp", { type: "image/webp" }),
+    const token = cameraToken.current;
+    let timeout;
+    try {
+      const canvas = document.createElement("canvas");
+      // Match the portrait preview crop and the server's 3072-pixel limit.
+      const cropWidth = isGhibli
+        ? Math.min(source.videoWidth, source.videoHeight * 3 / 4)
+        : source.videoWidth;
+      const cropHeight = isGhibli ? cropWidth * 4 / 3 : source.videoHeight;
+      const scale = Math.min(1, 3072 / Math.max(cropWidth, cropHeight));
+      canvas.width = Math.round(cropWidth * scale);
+      canvas.height = Math.round(cropHeight * scale);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw Error("Camera canvas is unavailable.");
+      if (facingMode === "user") {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(
+        source,
+        (source.videoWidth - cropWidth) / 2,
+        (source.videoHeight - cropHeight) / 2,
+        cropWidth, cropHeight, 0, 0, canvas.width, canvas.height,
       );
-    else {
-      setCapturing(false);
-      setError("Capture failed. Please try again.");
+      const blob = await new Promise((resolve, reject) => {
+        timeout = setTimeout(() => reject(Error("Capture timed out.")), 10000);
+        canvas.toBlob(resolve, "image/jpeg", 0.95);
+      });
+      if (!blob) throw Error("Could not encode the camera frame.");
+      if (token === cameraToken.current) {
+        const extension = blob.type === "image/png" ? "png" : "jpg";
+        choosePhoto(new File([blob], `camera-photo.${extension}`, { type: blob.type }));
+      }
+    } catch {
+      if (token === cameraToken.current) {
+        setError("Could not capture the photo. Try again or upload a photo.");
+      }
+    } finally {
+      clearTimeout(timeout);
+      if (token === cameraToken.current) setCapturing(false);
     }
   }
   async function generate() {

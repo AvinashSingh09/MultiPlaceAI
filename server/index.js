@@ -129,7 +129,7 @@ app.post(
         mode === "ghibli" ? ghibliPrompt() : editPrompt(template),
       );
       form.append("size", mode === "ghibli" ? "auto" : "1536x2304");
-      form.append("quality", "max");
+      form.append("quality", "high");
       form.append("output_format", "png");
       form.append("n", "1");
       const response = await fetch("https://api.openai.com/v1/images/edits", {
@@ -168,7 +168,7 @@ app.post(
           throw new Error("Could not preserve template branding");
         const footerTop = Math.round(
           (template.brandFooterStart / templateMetadata.height) *
-            outputMetadata.height,
+          outputMetadata.height,
         );
         const footer = await sharp(templatePath)
           .resize(outputMetadata.width, outputMetadata.height, { fit: "fill" })
