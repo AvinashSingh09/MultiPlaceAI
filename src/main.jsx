@@ -712,7 +712,7 @@ function App() {
         </footer>
         {configured === false && step === 1 && (
           <div className="setup-note">
-            Preview mode · Add your OpenAI and Cloudinary settings to enable image editing and sharing.
+            Preview mode · Configure the image service and Cloudinary to enable editing and sharing.
           </div>
         )}
       </div>

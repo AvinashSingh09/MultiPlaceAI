@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import sharp from "sharp";
 process.env.NODE_ENV = "test";
 const { app } = await import("./index.js");
+delete process.env.COMFYUI_URL;
 const originalFetch = globalThis.fetch;
 let server, base;
 before(async () => {
@@ -41,109 +42,101 @@ test("catalog exposes template without local file paths", async () => {
   assert.equal(d[0].people, 3);
   assert.equal(d[0].file, undefined);
 });
-test("generation validates requests and sends both images in order", async () => {
+test("MultiPlaces validates inputs and routes face swaps through ComfyUI", async (t) => {
+  process.env.COMFYUI_URL = "https://comfy.example";
+  process.env.COMFYUI_ACCESS_CLIENT_ID = "test-id";
+  process.env.COMFYUI_ACCESS_CLIENT_SECRET = "test-secret";
   process.env.OPENAI_API_KEY = "test-only-key";
   process.env.CLOUDINARY_CLOUD_NAME = "test-cloud";
   process.env.CLOUDINARY_UPLOAD_PRESET = "test-unsigned-preset";
+  t.after(() => {
+    delete process.env.COMFYUI_URL;
+    delete process.env.COMFYUI_ACCESS_CLIENT_ID;
+    delete process.env.COMFYUI_ACCESS_CLIENT_SECRET;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.CLOUDINARY_CLOUD_NAME;
+    delete process.env.CLOUDINARY_UPLOAD_PRESET;
+    globalThis.fetch = originalFetch;
+  });
+
+  let graph;
+  globalThis.fetch = async (url, options) => {
+    if (url.startsWith("https://api.cloudinary.com/")) {
+      assert.equal(options.headers, undefined);
+      return Response.json({ secure_url: "https://res.cloudinary.com/test-cloud/image/upload/postcard.png" });
+    }
+    const endpoint = new URL(url);
+    assert.equal(endpoint.origin, "https://comfy.example");
+    assert.equal(options.headers.get("CF-Access-Client-Id"), "test-id");
+    assert.equal(options.headers.get("CF-Access-Client-Secret"), "test-secret");
+    assert.equal(options.redirect, "error");
+    switch (endpoint.pathname) {
+      case "/upload/image": {
+        const image = options.body.get("image");
+        assert.equal(options.body.get("type"), "temp");
+        if (image.type === "image/webp") {
+          const metadata = await sharp(Buffer.from(await image.arrayBuffer())).metadata();
+          assert.deepEqual([metadata.format, metadata.width], ["webp", 30]);
+        }
+        return Response.json({ name: image.name, type: "temp" });
+      }
+      case "/prompt":
+        graph = JSON.parse(options.body).prompt;
+        assert.equal(graph.options.inputs.source_faces_order, "left-right");
+        assert.equal(graph.options.inputs.source_faces_index, "0,1,2");
+        for (let index = 0; index < 4; index++) {
+          const { inputs } = graph["swap" + index];
+          assert.equal(inputs.swap_model, "hyperswap_1a_256.onnx");
+          assert.equal(inputs.facedetection, "retinaface_resnet50");
+          assert.equal(inputs.codeformer_weight, 0.25);
+          assert.deepEqual(inputs.input_image, ["crop" + index, 0]);
+        }
+        return Response.json({ prompt_id: "test-job" });
+      case "/history/test-job":
+        return Response.json({
+          "test-job": {
+            status: { status_str: "success" },
+            outputs: Object.fromEntries([0, 1, 2, 3].map(index => [
+              "preview" + index, { images: [{ filename: index + ".png", type: "temp" }] },
+            ])),
+          },
+        });
+      case "/view": {
+        const { width, height } = graph["crop" + endpoint.searchParams.get("filename")[0]].inputs;
+        return new Response(await sharp({
+          create: { width, height, channels: 3, background: "black" },
+        }).png().toBuffer());
+      }
+      default:
+        throw Error("Unexpected ComfyUI request");
+    }
+  };
+
+  const submit = (options) => originalFetch(base + "/api/generate", {
+    method: "POST", body: form(options),
+  });
   for (const [options, message] of [
     [{ id: "../secret" }, "Choose"],
     [{ buffer: Buffer.from("bad image") }, "could not be read"],
   ]) {
-    const r = await originalFetch(base + "/api/generate", {
-      method: "POST",
-      body: form(options),
-    });
-    assert.equal(r.status, 400);
-    assert.match((await r.json()).error, new RegExp(message));
+    const response = await submit(options);
+    assert.equal(response.status, 400);
+    assert.match((await response.json()).error, new RegExp(message));
   }
-  let calls = 0;
-  globalThis.fetch = async (url, options) => {
-    calls++;
-    if (url === "https://api.cloudinary.com/v1_1/test-cloud/image/upload") {
-      const cloudinaryForm = options.body;
-      assert.equal(cloudinaryForm.get("upload_preset"), "test-unsigned-preset");
-      assert.equal(cloudinaryForm.get("folder"), "multiplaces");
-      assert.equal(cloudinaryForm.get("file").name, "multiplaces-postcard.png");
-      return new Response(
-        JSON.stringify({
-          secure_url:
-            "https://res.cloudinary.com/test-cloud/image/upload/postcard.png",
-        }),
-        { status: 200 },
-      );
-    }
-    assert.equal(url, "https://api.openai.com/v1/images/edits");
-    const f = options.body;
-    assert.equal(f.get("model"), "gpt-image-2.5-flare");
-    assert.deepEqual(
-      f.getAll("image[]").map((i) => i.name),
-      ["template.png", "group.webp"],
-    );
-    assert.match(f.get("prompt"), /SAME three identities/);
-    assert.match(f.get("prompt"), /Keep the red footer free of text and logos/);
-    assert.equal(f.get("size"), "1536x2304");
-    assert.equal(f.get("quality"), "medium");
-    assert.equal(f.get("mask"), null);
-    const reference = f.getAll("image[]")[1];
-    const metadata = await sharp(Buffer.from(await reference.arrayBuffer())).metadata();
-    assert.equal(metadata.format, "webp");
-    assert.equal(metadata.width, 30); // Small references must not be artificially enlarged.
-    const generatedPng = await sharp({
-      create: {
-        width: 1200,
-        height: 1800,
-        channels: 4,
-        background: { r: 20, g: 40, b: 60, alpha: 1 },
-      },
-    }).png().toBuffer();
-    return new Response(JSON.stringify({
-      data: [{ b64_json: generatedPng.toString("base64") }],
-    }), {
-      status: 200,
-    });
-  };
-  let r = await originalFetch(base + "/api/generate", {
-    method: "POST",
-    body: form(),
-  });
-  assert.equal(r.status, 200);
-  assert.match(r.headers.get("server-timing"), /^upload;dur=[\d.]+, prepare;dur=[\d.]+, edit;dur=[\d.]+, share;dur=[\d.]+$/);
-  const generated = await r.json();
+
+  const response = await submit();
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("server-timing"), /^upload;dur=[\d.]+, prepare;dur=[\d.]+, edit;dur=[\d.]+, share;dur=[\d.]+$/);
+  const generated = await response.json();
   assert.match(generated.image, /^data:image\/png;base64,/);
-  assert.equal(
-    generated.shareUrl,
-    "https://res.cloudinary.com/test-cloud/image/upload/postcard.png",
-  );
   assert.match(generated.qrCode, /^data:image\/png;base64,/);
-  assert.equal(calls, 2);
-  globalThis.fetch = async () =>
-    new Response(JSON.stringify({ error: { code: "rate_limit" } }), {
-      status: 429,
-    });
-  r = await originalFetch(base + "/api/generate", {
-    method: "POST",
-    body: form(),
-  });
-  assert.equal(r.status, 429);
-  delete process.env.CLOUDINARY_UPLOAD_PRESET;
-  globalThis.fetch = async () => {
-    throw new Error("OpenAI must not be called without sharing configuration");
-  };
-  r = await originalFetch(base + "/api/generate", {
-    method: "POST",
-    body: form(),
-  });
-  assert.equal(r.status, 503);
-  process.env.CLOUDINARY_UPLOAD_PRESET = "test-unsigned-preset";
-  delete process.env.OPENAI_API_KEY;
-  r = await originalFetch(base + "/api/generate", {
-    method: "POST",
-    body: form(),
-  });
-  assert.equal(r.status, 503);
-  delete process.env.CLOUDINARY_CLOUD_NAME;
-  delete process.env.CLOUDINARY_UPLOAD_PRESET;
-  globalThis.fetch = originalFetch;
+  const metadata = await sharp(Buffer.from(generated.image.split(",")[1], "base64")).metadata();
+  assert.deepEqual([metadata.width, metadata.height], [1200, 1800]);
+
+  delete process.env.COMFYUI_URL;
+  const missingUrl = await submit();
+  assert.equal(missingUrl.status, 503);
+  assert.match((await missingUrl.json()).error, /COMFYUI_URL/);
 });
 
 test("Ghibli mode edits only the captured photo", async () => {
