@@ -57,8 +57,13 @@ app.post(
     legacyHeaders: false,
     message: { error: "Generation limit reached. Please try again later." },
   }),
+  (req, _res, next) => {
+    req.uploadStartedAt = performance.now();
+    next();
+  },
   upload.single("photo"),
   async (req, res) => {
+    const uploadMs = performance.now() - req.uploadStartedAt;
     const mode = req.body.mode === "ghibli" ? "ghibli" : "multiplaces";
     const template = templates.find((t) => t.id === req.body.templateId);
     if (mode === "multiplaces" && !template)
@@ -85,6 +90,7 @@ app.post(
           "Image sharing is not configured yet. Add CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET to the server .env file.",
       });
     let photo;
+    const prepareStartedAt = performance.now();
     try {
       photo = await sharp(req.file.buffer, { limitInputPixels: 40000000 })
         .rotate()
@@ -132,6 +138,7 @@ app.post(
       form.append("quality", "medium");
       form.append("output_format", "png");
       form.append("n", "1");
+      const editStartedAt = performance.now();
       const response = await fetch("https://api.openai.com/v1/images/edits", {
         method: "POST",
         headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
@@ -139,6 +146,7 @@ app.post(
         signal: AbortSignal.timeout(300000),
       });
       const data = await response.json();
+      const editMs = performance.now() - editStartedAt;
       if (!response.ok) {
         console.error("Image edit failed:", response.status, data.error?.code);
         return res
@@ -196,6 +204,7 @@ app.post(
         process.env.CLOUDINARY_UPLOAD_PRESET,
       );
       cloudinaryForm.append("folder", "multiplaces");
+      const shareStartedAt = performance.now();
       const cloudinaryResponse = await fetch(
         `https://api.cloudinary.com/v1_1/${encodeURIComponent(process.env.CLOUDINARY_CLOUD_NAME)}/image/upload`,
         {
@@ -223,6 +232,12 @@ app.post(
         width: 320,
         color: { dark: "#293226", light: "#ffffff" },
       });
+      res.set("Server-Timing", [
+        `upload;dur=${uploadMs.toFixed(1)}`,
+        `prepare;dur=${(editStartedAt - prepareStartedAt).toFixed(1)}`,
+        `edit;dur=${editMs.toFixed(1)}`,
+        `share;dur=${(performance.now() - shareStartedAt).toFixed(1)}`,
+      ].join(", "));
       res.json({
         image: `data:image/png;base64,${imageBuffer.toString("base64")}`,
         shareUrl,

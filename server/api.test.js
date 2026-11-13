@@ -107,6 +107,7 @@ test("generation validates requests and sends both images in order", async () =>
     body: form(),
   });
   assert.equal(r.status, 200);
+  assert.match(r.headers.get("server-timing"), /^upload;dur=[\d.]+, prepare;dur=[\d.]+, edit;dur=[\d.]+, share;dur=[\d.]+$/);
   const generated = await r.json();
   assert.match(generated.image, /^data:image\/png;base64,/);
   assert.equal(

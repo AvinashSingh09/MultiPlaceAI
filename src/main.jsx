@@ -27,6 +27,30 @@ import {
 import "./style.css";
 
 const maxPhotoBytes = 15 * 1024 * 1024;
+const photoExtensions = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+async function takeWebcamStill(track) {
+  if (!track || typeof window.ImageCapture !== "function") return null;
+  let timeout;
+  try {
+    const photo = await Promise.race([
+      new window.ImageCapture(track).takePhoto(),
+      new Promise((resolve) => {
+        timeout = setTimeout(() => resolve(null), 2500);
+      }),
+    ]);
+    return photo?.size > 0 && photo.size <= maxPhotoBytes &&
+      Object.hasOwn(photoExtensions, photo.type) ? photo : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 function encodeCameraFrame(canvas, type, quality) {
   return new Promise((resolve, reject) => {
@@ -222,7 +246,7 @@ function App() {
   function choosePhoto(file) {
     if (!file) return;
     setError("");
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    if (!Object.hasOwn(photoExtensions, file.type)) {
       setError("Choose a JPG, PNG or WebP photo.");
       return;
     }
@@ -244,6 +268,16 @@ function App() {
     setError("");
     const token = cameraToken.current;
     try {
+      if (!isGhibli) {
+        const still = await takeWebcamStill(stream.current?.getVideoTracks()[0]);
+        if (token !== cameraToken.current) return;
+        if (still) {
+          choosePhoto(new File([still], `webcam-still.${photoExtensions[still.type]}`, {
+            type: still.type,
+          }));
+          return;
+        }
+      }
       const canvas = document.createElement("canvas");
       // Match the portrait preview crop and the server's 3072-pixel limit.
       const cropWidth = isGhibli
@@ -265,11 +299,7 @@ function App() {
         (source.videoHeight - cropHeight) / 2,
         cropWidth, cropHeight, 0, 0, canvas.width, canvas.height,
       );
-      let blob = await encodeCameraFrame(canvas, "image/png").catch(() => null);
-      if (token !== cameraToken.current) return;
-      if (!blob || blob.size > maxPhotoBytes) {
-        blob = await encodeCameraFrame(canvas, "image/jpeg", 0.98);
-      }
+      const blob = await encodeCameraFrame(canvas, "image/jpeg", 0.98);
       if (!blob) throw Error("Could not encode the camera frame.");
       if (token === cameraToken.current) {
         const extension = blob.type === "image/png" ? "png" : "jpg";
