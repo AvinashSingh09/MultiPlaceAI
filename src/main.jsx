@@ -344,41 +344,13 @@ function App() {
     };
     document.body.append(frame);
   }
-  function switchMode(nextMode) {
-    stopCamera();
-    setPhoto(null);
-    setResult("");
-    setShareUrl("");
-    setQrCode("");
-    setError("");
-    navigate(`/${nextMode}`);
-  }
   return (
     <>
       <div className="min-h-screen flex flex-col" inert={busy ? true : undefined}>
         <header className={`site-header ${fullscreen ? "is-fullscreen" : ""}`}>
-          <button className="site-logo" onClick={() => switchMode(mode)}>
-            <img
-              src="/templates/Veeva_Systems_Logo.svg"
-              alt="Veeva Systems"
-            />
+          <button className="site-home" type="button" onClick={reset}>
+            MultiPlaces
           </button>
-          <nav className="mode-switch" aria-label="Choose experience">
-            <button
-              className={isGhibli ? "active" : ""}
-              aria-pressed={isGhibli}
-              onClick={() => switchMode("ghibli")}
-            >
-              Ghibli
-            </button>
-            <button
-              className={!isGhibli ? "active" : ""}
-              aria-pressed={!isGhibli}
-              onClick={() => switchMode("multiplaces")}
-            >
-              MultiPlaces
-            </button>
-          </nav>
           <button
             className="fullscreen-toggle"
             onClick={toggleFullscreen}

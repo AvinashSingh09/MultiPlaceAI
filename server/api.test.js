@@ -80,7 +80,7 @@ test("generation validates requests and sends both images in order", async () =>
       ["template.png", "group.webp"],
     );
     assert.match(f.get("prompt"), /SAME three identities/);
-    assert.match(f.get("prompt"), /Veeva logo exactly as shown/);
+    assert.match(f.get("prompt"), /Keep the red footer free of text and logos/);
     assert.equal(f.get("size"), "1536x2304");
     assert.equal(f.get("quality"), "medium");
     assert.equal(f.get("mask"), null);

@@ -29,7 +29,7 @@ In each of the ${template.scenes} panels, replace the template faces with the re
 
 In the upper-right Srinagar panel and lower-left Alappuzha panel, show the center person looking straight at the camera with their head upright, eyes nearly level, and chin centered over the neck. Keep their natural smile and relaxed shoulders. Follow the original head angles for the other people and panels.
 
-Use the original template head as the maximum apparent width and height for each replacement. In particular, keep all three heads in the lower-left Alappuzha panel in proportion to their original shoulders. Keep the original shoulder widths, body poses, garments, and framing. Preserve all landmarks, panel boundaries, and the Veeva logo exactly as shown. Return the complete postcard.`;
+Use the original template head as the maximum apparent width and height for each replacement. In particular, keep all three heads in the lower-left Alappuzha panel in proportion to their original shoulders. Keep the original shoulder widths, body poses, garments, and framing. Preserve the landmarks and panel boundaries. Keep the red footer free of text and logos. Return the complete postcard.`;
 }
 
 export function ghibliPrompt() {

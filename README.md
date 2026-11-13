@@ -18,14 +18,9 @@ Open http://localhost:5173. The API runs on port 3001. Camera access works on lo
 
 ## Flow
 
-Use the switch at the top to choose one of two routed experiences:
+Select a template and capture or upload a photograph of three people. MultiPlaces maps the same people left-to-right across all four panels. The flow uses `/multiplaces/*` routes for the gallery, capture, and result pages. You can download or print the result and share it via a Cloudinary QR code.
 
-- **MultiPlaces:** select a template, capture or upload a photograph of three people, and map the same people left-to-right across all four panels.
-- **Ghibli:** press Start, capture or upload any clear photo, and transform the complete scene into a hand-painted animated-film illustration.
-
-The flows use `/multiplaces/*` and `/ghibli/*` routes, so browser Back and Forward navigation works between their start, capture, and result pages. Generated images can be downloaded and are uploaded to Cloudinary for QR-code sharing.
-
-The server submits the original template first and the group photo second to `/v1/images/edits`, using `gpt-image-2.5-flare` by default, `medium` quality, and 1536×2304 output. The server restores the branded footer from the template. Model access and billing must be enabled on your OpenAI project. Facial likeness and proportions can vary between edits.
+The server submits the original template first and the group photo second to `/v1/images/edits`, using `gpt-image-2.5-flare` by default, `medium` quality, and 1536×2304 output. The server restores the decorative footer from the template. Model access and billing must be enabled on your OpenAI project. Facial likeness and proportions can vary between edits.
 
 ## Templates
 

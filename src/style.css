@@ -90,21 +90,18 @@ a.primary:hover {
   min-height: 82px;
   margin: 0 5.5%;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr auto;
   align-items: center;
   gap: 24px;
   border-bottom: 1px solid #dcded5;
 }
-.site-logo {
-  width: 150px;
+.site-home {
   justify-self: start;
+  color: #35402d;
+  font-size: 23px;
+  font-weight: 700;
 }
-.site-logo img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-.site-header.is-fullscreen .site-logo {
+.site-header.is-fullscreen .site-home {
   margin-left: max(56px, env(safe-area-inset-left));
 }
 .fullscreen-toggle {
@@ -122,29 +119,6 @@ a.primary:hover {
 .fullscreen-toggle:hover {
   background: #e4e7dc;
   transform: translateY(-1px);
-}
-.mode-switch {
-  width: min(100% - 32px, 390px);
-  margin: 0;
-  padding: 4px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  border: 1px solid #cfd4c3;
-  border-radius: 999px;
-  background: #eeefe8;
-}
-.mode-switch button {
-  min-height: 42px;
-  padding: 9px 18px;
-  border-radius: 999px;
-  color: #68705f;
-  font-size: 12px;
-  font-weight: 600;
-}
-.mode-switch button.active {
-  background: #35402d;
-  color: white;
-  box-shadow: 0 3px 10px #26331d24;
 }
 .ghibli-start {
   width: min(100% - 48px, 1080px);
@@ -843,9 +817,6 @@ h2 {
   .site-header {
     margin: 0 24px;
   }
-  .site-logo {
-    width: 120px;
-  }
   .ghibli-start {
     grid-template-columns: 1fr;
     gap: 42px;
@@ -882,24 +853,10 @@ h2 {
   .site-header {
     margin: 0 16px;
     padding: 16px 0;
-    grid-template-columns: 1fr;
     gap: 14px;
   }
-  .site-logo {
-    width: 116px;
-    justify-self: center;
-  }
-  .site-header.is-fullscreen .site-logo {
+  .site-header.is-fullscreen .site-home {
     margin-left: 0;
-  }
-  .fullscreen-toggle {
-    position: absolute;
-    top: 18px;
-    right: 0;
-  }
-  .mode-switch {
-    width: min(100%, 360px);
-    justify-self: center;
   }
   .header {
     height: 76px;
@@ -914,9 +871,6 @@ h2 {
   .steps {
     gap: 8px;
     padding: 24px 12px 15px;
-  }
-  .mode-switch {
-    margin-top: 0;
   }
   .ghibli-start {
     width: min(100% - 28px, 500px);

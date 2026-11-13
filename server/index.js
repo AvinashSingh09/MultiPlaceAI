@@ -165,7 +165,7 @@ app.post(
           !outputMetadata.height ||
           !templateMetadata.height
         )
-          throw new Error("Could not preserve template branding");
+          throw new Error("Could not preserve the template footer");
         const footerTop = Math.round(
           (template.brandFooterStart / templateMetadata.height) *
           outputMetadata.height,
