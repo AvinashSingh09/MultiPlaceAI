@@ -82,7 +82,7 @@ test("generation validates requests and sends both images in order", async () =>
     assert.match(f.get("prompt"), /SAME three identities/);
     assert.match(f.get("prompt"), /Veeva logo exactly as shown/);
     assert.equal(f.get("size"), "1536x2304");
-    assert.equal(f.get("quality"), "high");
+    assert.equal(f.get("quality"), "medium");
     assert.equal(f.get("mask"), null);
     const reference = f.getAll("image[]")[1];
     const metadata = await sharp(Buffer.from(await reference.arrayBuffer())).metadata();
