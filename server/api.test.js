@@ -85,16 +85,18 @@ test("MultiPlaces validates inputs and routes face swaps through ComfyUI", async
         assert.equal(graph.options.inputs.source_faces_order, "left-right");
         assert.equal(graph.options.inputs.source_faces_index, "0,1,2");
         assert.equal(graph.boost.inputs.restore_with_main_after, true);
+        assert.equal(graph.boost.inputs.codeformer_weight, 0.8);
         for (let index = 0; index < 4; index++) {
           const { inputs } = graph["swap" + index];
           assert.equal(inputs.swap_model, "inswapper_128.onnx");
           assert.equal(inputs.facedetection, "YOLOv5l");
-          assert.equal(inputs.face_restore_model, "GFPGANv1.4.pth");
-          assert.equal(inputs.codeformer_weight, 0.65);
+          assert.equal(inputs.face_restore_model, "codeformer-v0.1.0.pth");
+          assert.equal(inputs.codeformer_weight, 0.8);
           assert.deepEqual(inputs.input_image, ["crop" + index, 0]);
           const restore = graph["restore" + index];
           assert.equal(restore.class_type, "ReActorRestoreFaceAdvanced");
-          assert.equal(restore.inputs.model, "GFPGANv1.4.pth");
+          assert.equal(restore.inputs.model, "codeformer-v0.1.0.pth");
+          assert.equal(restore.inputs.codeformer_weight, 0.7);
           assert.equal(restore.inputs.face_selection, "all");
           assert.deepEqual(restore.inputs.image, ["swap" + index, 0]);
           assert.deepEqual(graph["preview" + index].inputs.images, ["restore" + index, 0]);

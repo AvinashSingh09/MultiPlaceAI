@@ -59,7 +59,7 @@ export async function swapPostcardFaces(baseUrl, templateImage, photo) {
       class_type: "ReActorFaceBoost",
       inputs: {
         enabled: true, boost_model: "codeformer-v0.1.0.pth", interpolation: "Bicubic",
-        visibility: 1, codeformer_weight: 0.5, restore_with_main_after: true,
+        visibility: 1, codeformer_weight: 0.8, restore_with_main_after: true,
       },
     },
   };
@@ -73,14 +73,14 @@ export async function swapPostcardFaces(baseUrl, templateImage, photo) {
       inputs: {
         enabled: true, input_image: [`crop${index}`, 0], source_image: ["reference", 0],
         options: ["options", 0], face_boost: ["boost", 0], swap_model: "inswapper_128.onnx",
-        facedetection: "YOLOv5l", face_restore_model: "GFPGANv1.4.pth",
-        face_restore_visibility: 1, codeformer_weight: 0.65,
+        facedetection: "YOLOv5l", face_restore_model: "codeformer-v0.1.0.pth",
+        face_restore_visibility: 1, codeformer_weight: 0.8,
       },
     };
     graph[`restore${index}`] = {
       class_type: "ReActorRestoreFaceAdvanced",
       inputs: {
-        image: [`swap${index}`, 0], facedetection: "YOLOv5l", model: "GFPGANv1.4.pth",
+        image: [`swap${index}`, 0], facedetection: "YOLOv5l", model: "codeformer-v0.1.0.pth",
         visibility: 1, codeformer_weight: 0.7, face_selection: "all",
         sort_by: "area", reverse_order: false, take_start: 0, take_count: 1,
       },
