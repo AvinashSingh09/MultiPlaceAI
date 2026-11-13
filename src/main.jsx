@@ -26,6 +26,23 @@ import {
 } from "lucide-react";
 import "./style.css";
 
+const maxPhotoBytes = 15 * 1024 * 1024;
+
+function encodeCameraFrame(canvas, type, quality) {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(Error("Capture timed out.")), 5000);
+    try {
+      canvas.toBlob((blob) => {
+        clearTimeout(timeout);
+        resolve(blob);
+      }, type, quality);
+    } catch (error) {
+      clearTimeout(timeout);
+      reject(error);
+    }
+  });
+}
+
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -209,7 +226,7 @@ function App() {
       setError("Choose a JPG, PNG or WebP photo.");
       return;
     }
-    if (file.size > 15 * 1024 * 1024) {
+    if (file.size > maxPhotoBytes) {
       setError("Choose a photo smaller than 15 MB.");
       return;
     }
@@ -226,7 +243,6 @@ function App() {
     setCapturing(true);
     setError("");
     const token = cameraToken.current;
-    let timeout;
     try {
       const canvas = document.createElement("canvas");
       // Match the portrait preview crop and the server's 3072-pixel limit.
@@ -249,10 +265,11 @@ function App() {
         (source.videoHeight - cropHeight) / 2,
         cropWidth, cropHeight, 0, 0, canvas.width, canvas.height,
       );
-      const blob = await new Promise((resolve, reject) => {
-        timeout = setTimeout(() => reject(Error("Capture timed out.")), 10000);
-        canvas.toBlob(resolve, "image/jpeg", 0.95);
-      });
+      let blob = await encodeCameraFrame(canvas, "image/png").catch(() => null);
+      if (token !== cameraToken.current) return;
+      if (!blob || blob.size > maxPhotoBytes) {
+        blob = await encodeCameraFrame(canvas, "image/jpeg", 0.98);
+      }
       if (!blob) throw Error("Could not encode the camera frame.");
       if (token === cameraToken.current) {
         const extension = blob.type === "image/png" ? "png" : "jpg";
@@ -263,7 +280,6 @@ function App() {
         setError("Could not capture the photo. Try again or upload a photo.");
       }
     } finally {
-      clearTimeout(timeout);
       if (token === cameraToken.current) setCapturing(false);
     }
   }
@@ -532,7 +548,7 @@ function App() {
                 />
                 {camera && (
                   <div className="capture-controls">
-                    <span>{isGhibli ? "Keep the scene inside the frame" : "Left to right: person 1, 2, 3"}</span>
+                    <span>{isGhibli ? "Keep the scene inside the frame" : "Move closer and face the light so all three faces are clear."}</span>
                     <button
                       className="primary"
                       onClick={capture}
@@ -550,7 +566,7 @@ function App() {
                 {photo && (
                   <>
                     <div className="capture-controls">
-                      <span>{isGhibli ? "Review your photo" : "Person 1 → Person 2 → Person 3"}</span>
+                      <span>{isGhibli ? "Review your photo" : "Check that all three faces are large and sharp. Retake if any face is blurry."}</span>
                       <button
                         className="text-button"
                         disabled={busy}
