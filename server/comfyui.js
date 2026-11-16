@@ -10,7 +10,7 @@ const panels = [
   { left: 608, top: 791, width: 579, height: 742 },
 ];
 
-export async function swapPostcardFaces(baseUrl, templateImage, photo) {
+export async function swapPostcardFaces(baseUrl, templateImage, photo, people = 3) {
   const signal = AbortSignal.timeout(285000);
   const base = baseUrl.replace(/\/+$/, "");
   const clientId = process.env.COMFYUI_ACCESS_CLIENT_ID;
@@ -44,14 +44,15 @@ export async function swapPostcardFaces(baseUrl, templateImage, photo) {
     uploadImage(templateImage, `multiplaces-template-${templateHash}.png`, "image/png"),
     uploadImage(photo, `multiplaces-reference-${randomUUID()}.webp`, "image/webp"),
   ]);
+  const faceIndices = Array.from({ length: people }, (_, index) => index).join(",");
   const graph = {
     template: { class_type: "LoadImage", inputs: { image: templateFile } },
     reference: { class_type: "LoadImage", inputs: { image: photoFile } },
     options: {
       class_type: "ReActorOptions",
       inputs: {
-        input_faces_order: "left-right", input_faces_index: "0,1,2", detect_gender_input: "no",
-        source_faces_order: "left-right", source_faces_index: "0,1,2", detect_gender_source: "no",
+        input_faces_order: "left-right", input_faces_index: faceIndices, detect_gender_input: "no",
+        source_faces_order: "left-right", source_faces_index: faceIndices, detect_gender_source: "no",
         console_log_level: 1, restore_swapped_only: true,
       },
     },

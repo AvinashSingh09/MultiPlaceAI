@@ -80,7 +80,8 @@ function App() {
       ? 2
       : 0;
   const [templates, setTemplates] = useState([]),
-    [selected, setSelected] = useState(null),
+    [groupSize, setGroupSize] = useState(3),
+    [selectedTemplateId, setSelectedTemplateId] = useState(null),
     [photo, setPhoto] = useState(null),
     [preview, setPreview] = useState(""),
     [result, setResult] = useState(""),
@@ -95,6 +96,10 @@ function App() {
     [facingMode, setFacingMode] = useState("user"),
     [fullscreen, setFullscreen] = useState(false),
     [configured, setConfigured] = useState(null);
+  const availableTemplates = templates.filter((template) => template.people === groupSize);
+  const selected = availableTemplates.find((template) => template.id === selectedTemplateId)
+    ?? availableTemplates[0];
+  const groupLabel = groupSize === 1 ? "1 person" : `${groupSize} people`;
   const video = useRef(null),
     stream = useRef(null),
     cameraToken = useRef(0),
@@ -107,10 +112,7 @@ function App() {
         if (!r.ok) throw Error();
         return r.json();
       })
-      .then((t) => {
-        setTemplates(t);
-        setSelected(t[0]);
-      })
+      .then(setTemplates)
       .catch(() =>
         setError("Could not load templates. Please refresh to try again."),
       );
@@ -322,7 +324,7 @@ function App() {
     }
   }
   async function generate() {
-    if (busy || !photo) return;
+    if (busy || !photo || (!isGhibli && !selected)) return;
     setBusy(true);
     setError("");
     const form = new FormData();
@@ -435,8 +437,29 @@ function App() {
           )}
           {!isGhibli && step === 0 && (
             <section className="template-gallery-layout">
+              <fieldset className="group-size-picker">
+                <legend>How many people are in the photo?</legend>
+                <div className="group-size-options">
+                  {[1, 2, 3].map((count) => (
+                    <label key={count}>
+                      <input
+                        type="radio"
+                        name="group-size"
+                        checked={groupSize === count}
+                        onChange={() => {
+                          setGroupSize(count);
+                          setSelectedTemplateId(null);
+                          setPhoto(null);
+                          setError("");
+                        }}
+                      />
+                      <span>{count === 1 ? "1 person" : `${count} people`}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               <div className="template-gallery" aria-label="Choose a template">
-                {templates.map((t) => {
+                {availableTemplates.map((t) => {
                   const isSelected = selected?.id === t.id;
                   return (
                     <button
@@ -444,9 +467,10 @@ function App() {
                       key={t.id}
                       aria-label={`Select ${t.name}`}
                       aria-pressed={isSelected}
-                      onClick={() => setSelected(t)}
+                      onClick={() => setSelectedTemplateId(t.id)}
                     >
                       <img src={t.image} alt={t.name} />
+                      <span className="template-card-name">{t.name}</span>
                       {isSelected && (
                         <span className="template-card-check" aria-hidden="true">
                           <Check size={18} strokeWidth={2.5} />
@@ -506,7 +530,7 @@ function App() {
                   {photo ? (
                     <img
                       src={preview}
-                      alt="Your group photo, in the exact order used for editing"
+                      alt="Your photo, as it will be used for editing"
                     />
                   ) : camera ? (
                     <>
@@ -519,7 +543,7 @@ function App() {
                         className={`camera-video ${facingMode === "environment" ? "rear-camera" : ""}`}
                       />
                       {!isGhibli && <div className="face-guides" aria-hidden="true">
-                        {[1, 2, 3].map((n) => (
+                        {Array.from({ length: groupSize }, (_, index) => index + 1).map((n) => (
                           <div key={n}>
                             <span />
                             {n}
@@ -549,12 +573,14 @@ function App() {
                         <Users size={50} strokeWidth={1} />
                       </div>
                       <h3>
-                        {isGhibli ? "One photo. A hand-painted world." : "Three faces. One great photo."}
+                        {isGhibli ? "One photo. A hand-painted world." : `Take a photo of ${groupLabel}`}
                       </h3>
                       <p>
                         {isGhibli
                           ? "Keep faces clear and the full scene inside the frame."
-                          : "Keep every face visible, with a little space between you."}
+                          : groupSize === 1
+                            ? "Face the camera and keep your face centered."
+                            : "Stand side by side and keep every face visible."}
                       </p>
                       {isMobileDevice && (
                         <button
@@ -604,7 +630,7 @@ function App() {
                 )}
                 {camera && (
                   <div className="capture-controls">
-                    <span>{isGhibli ? "Keep the scene inside the frame" : "Move closer and face the light so all three faces are clear."}</span>
+                    <span>{isGhibli ? "Keep the scene inside the frame" : `Frame ${groupLabel} and face the light.`}</span>
                     <button
                       className="primary"
                       onClick={capture}
@@ -622,7 +648,7 @@ function App() {
                 {photo && (
                   <>
                     <div className="capture-controls">
-                      <span>{isGhibli ? "Review your photo" : "Check that all three faces are large and sharp. Retake if any face is blurry."}</span>
+                      <span>{isGhibli ? "Review your photo" : `Check that the photo has ${groupLabel} and each face is sharp.`}</span>
                       <button
                         className="text-button"
                         disabled={busy}
@@ -637,7 +663,7 @@ function App() {
                     </div>
                     <button
                       className="primary generate"
-                      disabled={busy}
+                      disabled={busy || (!isGhibli && !selected)}
                       onClick={generate}
                     >
                       {busy ? (

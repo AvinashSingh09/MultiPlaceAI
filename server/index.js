@@ -121,7 +121,7 @@ app.post(
         : null;
       const editStartedAt = performance.now();
       const imageBuffer = comfyUrl
-        ? await swapPostcardFaces(comfyUrl, templateImage, photo)
+        ? await swapPostcardFaces(comfyUrl, templateImage, photo, template.people)
         : await editGhibliPhoto(photo, res);
       if (!imageBuffer) return;
       const editMs = performance.now() - editStartedAt;
@@ -184,7 +184,7 @@ app.post(
             ["TimeoutError", "AbortError"].includes(error.name)
               ? "The edit took too long. Please try again."
               : comfyUrl
-                ? "ComfyUI could not complete the face swap. Check that ComfyUI is running and that all three faces are clear."
+                ? "ComfyUI could not complete the face swap. Check that ComfyUI is running and the photo has clear faces for the selected group size."
                 : "Could not reach the image service. Please try again.",
         });
     }

@@ -18,9 +18,9 @@ Open http://localhost:5173. The API runs on port 3001. Camera access works on lo
 
 ## Flow
 
-Select a template and capture or upload a photograph of three people. MultiPlaces maps the same people left-to-right across all four panels. The flow uses `/multiplaces/*` routes for the gallery, capture, and result pages. You can download or print the result and share it via a Cloudinary QR code.
+Choose 1, 2, or 3 people and select the men’s or women’s template for that group size. Capture or upload a photo with that number of clear faces. MultiPlaces maps the faces left to right across all four panels. The flow uses `/multiplaces/*` routes for the gallery, capture, and result pages. You can download or print the result and share it via a Cloudinary QR code.
 
-Run ComfyUI with ReActor, `inswapper_128.onnx`, and `codeformer-v0.1.0.pth` installed. Each panel uses YOLOv5l, CodeFormer boosting and restoration at weight 0.8, and an advanced CodeFormer pass on all faces at weight 0.7. The app matches three detected faces from left to right in each panel and preserves the original postcard layout. Cloudinary handles QR sharing.
+Run ComfyUI with ReActor, `inswapper_128.onnx`, and `codeformer-v0.1.0.pth` installed. Each panel uses YOLOv5l, CodeFormer boosting and restoration at weight 0.8, and an advanced CodeFormer pass on all faces at weight 0.7. The selected template determines how many faces ReActor swaps in each panel. Cloudinary handles QR sharing.
 
 For Render, point the Cloudflare Tunnel at `http://127.0.0.1:8000` on the computer running ComfyUI. Set `COMFYUI_URL` in Render to the tunnel's HTTPS hostname. Protect the hostname with a Cloudflare Access Service Auth policy and set `COMFYUI_ACCESS_CLIENT_ID` and `COMFYUI_ACCESS_CLIENT_SECRET` as server environment variables. The backend sends these credentials with ComfyUI requests.
 
@@ -28,7 +28,7 @@ The hidden Ghibli route uses OpenAI and requires `OPENAI_API_KEY`.
 
 ## Templates
 
-Add image files to `Template Images` and register them in `server/templates.js`. The supplied prompt currently targets the provided four-panel, three-person layout; update it when supporting other layouts. The gallery is populated from the server catalog.
+Add image files to `Template Images` and register them with their person count in `server/templates.js`. Use the existing 1200 × 1800 four-panel geometry so ComfyUI crops and reassembles each panel correctly.
 
 ## Build and verification
 

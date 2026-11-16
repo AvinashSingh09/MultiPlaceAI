@@ -229,6 +229,49 @@ a.primary:hover {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 28px;
 }
+.group-size-picker {
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+}
+.group-size-picker legend {
+  margin-bottom: 10px;
+  color: #35402d;
+  font-weight: 600;
+  text-align: center;
+}
+.group-size-options {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid #d4d9c8;
+  border-radius: 10px;
+  background: #eeefe8;
+}
+.group-size-options label {
+  position: relative;
+  cursor: pointer;
+}
+.group-size-options input {
+  position: absolute;
+  opacity: 0;
+}
+.group-size-options span {
+  display: block;
+  padding: 9px 12px;
+  border-radius: 6px;
+  color: #35402d;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.group-size-options input:checked + span {
+  background: #35402d;
+  color: white;
+}
+.group-size-options input:focus-visible + span {
+  outline: 2px solid #65753f;
+  outline-offset: 2px;
+}
 .template-card {
   position: relative;
   overflow: hidden;
@@ -251,6 +294,13 @@ a.primary:hover {
   width: 100%;
   height: auto;
   border-radius: 3px;
+}
+.template-card-name {
+  display: block;
+  padding: 10px 4px 4px;
+  color: #35402d;
+  font-size: 14px;
+  font-weight: 600;
 }
 .template-card-check {
   position: absolute;
@@ -909,7 +959,6 @@ h2 {
     gap: 20px;
   }
   .template-gallery {
-    grid-template-columns: 1fr;
     gap: 12px;
   }
   .template-card {

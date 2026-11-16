@@ -39,8 +39,8 @@ test("health endpoint returns 200 OK", async () => {
 test("catalog exposes template without local file paths", async () => {
   const r = await originalFetch(base + "/api/templates");
   const d = await r.json();
-  assert.equal(d[0].people, 3);
-  assert.equal(d[0].file, undefined);
+  assert.deepEqual(d.map((template) => template.people).sort(), [1, 1, 2, 2, 3, 3]);
+  assert.ok(d.every((template) => template.file === undefined));
 });
 test("MultiPlaces validates inputs and routes face swaps through ComfyUI", async (t) => {
   process.env.COMFYUI_URL = "https://comfy.example";
@@ -60,6 +60,7 @@ test("MultiPlaces validates inputs and routes face swaps through ComfyUI", async
   });
 
   let graph;
+  let expectedFaces;
   globalThis.fetch = async (url, options) => {
     if (url.startsWith("https://api.cloudinary.com/")) {
       assert.equal(options.headers, undefined);
@@ -83,7 +84,9 @@ test("MultiPlaces validates inputs and routes face swaps through ComfyUI", async
       case "/prompt":
         graph = JSON.parse(options.body).prompt;
         assert.equal(graph.options.inputs.source_faces_order, "left-right");
-        assert.equal(graph.options.inputs.source_faces_index, "0,1,2");
+        assert.equal(graph.options.inputs.input_faces_order, "left-right");
+        assert.equal(graph.options.inputs.source_faces_index, expectedFaces);
+        assert.equal(graph.options.inputs.input_faces_index, expectedFaces);
         assert.equal(graph.boost.inputs.restore_with_main_after, true);
         assert.equal(graph.boost.inputs.codeformer_weight, 0.8);
         for (let index = 0; index < 4; index++) {
@@ -134,14 +137,24 @@ test("MultiPlaces validates inputs and routes face swaps through ComfyUI", async
     assert.match((await response.json()).error, new RegExp(message));
   }
 
-  const response = await submit();
-  assert.equal(response.status, 200);
-  assert.match(response.headers.get("server-timing"), /^upload;dur=[\d.]+, prepare;dur=[\d.]+, edit;dur=[\d.]+, share;dur=[\d.]+$/);
-  const generated = await response.json();
-  assert.match(generated.image, /^data:image\/png;base64,/);
-  assert.match(generated.qrCode, /^data:image\/png;base64,/);
-  const metadata = await sharp(Buffer.from(generated.image.split(",")[1], "base64")).metadata();
-  assert.deepEqual([metadata.width, metadata.height], [1200, 1800]);
+  for (const [id, indices] of [
+    ["india-solo-men", "0"],
+    ["india-solo-women", "0"],
+    ["india-duo-men", "0,1"],
+    ["india-duo-women", "0,1"],
+    ["world-tour", "0,1,2"],
+    ["world-tour-2", "0,1,2"],
+  ]) {
+    expectedFaces = indices;
+    const response = await submit({ id });
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("server-timing"), /^upload;dur=[\d.]+, prepare;dur=[\d.]+, edit;dur=[\d.]+, share;dur=[\d.]+$/);
+    const generated = await response.json();
+    assert.match(generated.image, /^data:image\/png;base64,/);
+    assert.match(generated.qrCode, /^data:image\/png;base64,/);
+    const metadata = await sharp(Buffer.from(generated.image.split(",")[1], "base64")).metadata();
+    assert.deepEqual([metadata.width, metadata.height], [1200, 1800]);
+  }
 
   delete process.env.COMFYUI_URL;
   const missingUrl = await submit();
