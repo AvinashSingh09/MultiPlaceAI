@@ -8,7 +8,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { templates, ghibliPrompt } from "./templates.js";
-import { swapPostcardFaces } from "./comfyui.js";
+import { postcardPrompt, restorePostcardFrame } from "./postcard.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 dotenv.config({ path: path.join(root, ".env"), quiet: true });
@@ -31,12 +31,11 @@ app.get("/api/templates", (_req, res) =>
 app.get("/api/health", (_req, res) =>
   res.json({
     configured: !!(
-      process.env.COMFYUI_URL &&
+      process.env.OPENAI_API_KEY &&
       process.env.CLOUDINARY_CLOUD_NAME &&
       process.env.CLOUDINARY_UPLOAD_PRESET
     ),
     openaiConfigured: !!process.env.OPENAI_API_KEY,
-    comfyuiConfigured: !!process.env.COMFYUI_URL,
     cloudinaryConfigured: !!(
       process.env.CLOUDINARY_CLOUD_NAME &&
       process.env.CLOUDINARY_UPLOAD_PRESET
@@ -67,7 +66,6 @@ app.post(
   async (req, res) => {
     const uploadMs = performance.now() - req.uploadStartedAt;
     const mode = req.body.mode === "ghibli" ? "ghibli" : "multiplaces";
-    const comfyUrl = mode === "multiplaces" && process.env.COMFYUI_URL;
     const template = templates.find((t) => t.id === req.body.templateId);
     if (mode === "multiplaces" && !template)
       return res.status(400).json({ error: "Choose an available template." });
@@ -77,14 +75,11 @@ app.post(
         .json({
           error: "Upload a JPG, PNG or WebP group photo (up to 15 MB).",
         });
-    if (mode === "multiplaces" ? !comfyUrl : !process.env.OPENAI_API_KEY)
+    if (!process.env.OPENAI_API_KEY)
       return res
         .status(503)
         .json({
-          error:
-            mode === "ghibli"
-              ? "Add OPENAI_API_KEY to the server .env file to enable image editing."
-              : "Set COMFYUI_URL on the server to enable face swapping.",
+          error: "Set OPENAI_API_KEY on the server to enable image editing.",
         });
     if (
       !process.env.CLOUDINARY_CLOUD_NAME ||
@@ -120,10 +115,11 @@ app.post(
         ? await readFile(path.join(root, "Template Images", template.file))
         : null;
       const editStartedAt = performance.now();
-      const imageBuffer = comfyUrl
-        ? await swapPostcardFaces(comfyUrl, templateImage, photo, template.people)
-        : await editGhibliPhoto(photo, res);
-      if (!imageBuffer) return;
+      const edited = await editPhoto(photo, templateImage, template?.people, res);
+      if (!edited) return;
+      const imageBuffer = templateImage
+        ? await restorePostcardFrame(templateImage, edited)
+        : edited;
       const editMs = performance.now() - editStartedAt;
       const cloudinaryForm = new FormData();
       cloudinaryForm.append(
@@ -183,9 +179,7 @@ app.post(
           error:
             ["TimeoutError", "AbortError"].includes(error.name)
               ? "The edit took too long. Please try again."
-              : comfyUrl
-                ? "ComfyUI could not complete the face swap. Check that ComfyUI is running and the photo has clear faces for the selected group size."
-                : "Could not reach the image service. Please try again.",
+              : "The image service could not complete the edit. Please try again.",
         });
     }
   },
@@ -207,20 +201,27 @@ app.use((error, _req, res, _next) =>
           : "Unable to process this upload.",
     }),
 );
-async function editGhibliPhoto(photo, res) {
+async function editPhoto(photo, templateImage, people, res) {
   const form = new FormData();
   form.append(
     "model",
     process.env.OPENAI_IMAGE_MODEL || "gpt-image-2.5-flare",
   );
+  if (templateImage) {
+    form.append(
+      "image[]",
+      new Blob([templateImage], { type: "image/png" }),
+      "postcard-template.png",
+    );
+  }
   form.append(
     "image[]",
     new Blob([photo], { type: "image/webp" }),
     "group.webp",
   );
-  form.append("prompt", ghibliPrompt());
-  form.append("size", "auto");
-  form.append("quality", "medium");
+  form.append("prompt", templateImage ? postcardPrompt(people) : ghibliPrompt());
+  form.append("size", templateImage ? "1024x1536" : "auto");
+  form.append("quality", templateImage ? "high" : "medium");
   form.append("output_format", "png");
   form.append("n", "1");
   const response = await fetch("https://api.openai.com/v1/images/edits", {

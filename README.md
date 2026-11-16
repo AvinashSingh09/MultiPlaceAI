@@ -1,6 +1,6 @@
 # MultiPlaces
 
-A React and Tailwind photo studio backed by Express and ComfyUI ReActor.
+A React and Tailwind photo studio backed by Express and the OpenAI Image API.
 
 ## Run locally
 
@@ -9,7 +9,7 @@ Requires Node.js 22 or newer.
 ```powershell
 npm install
 Copy-Item .env.example .env
-# Set COMFYUI_URL=http://127.0.0.1:8000 for local face swapping.
+# Set OPENAI_API_KEY for image editing.
 # Set CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET. The preset must be unsigned.
 npm run dev
 ```
@@ -18,17 +18,13 @@ Open http://localhost:5173. The API runs on port 3001. Camera access works on lo
 
 ## Flow
 
-Choose 1, 2, or 3 people and select the men’s or women’s template for that group size. Capture or upload a photo with that number of clear faces. MultiPlaces maps the faces left to right across all four panels. The flow uses `/multiplaces/*` routes for the gallery, capture, and result pages. You can download or print the result and share it via a Cloudinary QR code.
+Choose 1, 2, or 3 people and select the men’s or women’s template for that group size. Capture or upload a photo with that number of clear faces. MultiPlaces sends the template and reference photo to OpenAI in one edit request. The prompt asks for the same left-to-right face mapping across all four panels and asks the model to preserve the scenes, clothing, and poses. The server places the edited panels inside the original postcard frame. You can download or print the result and share it via a Cloudinary QR code.
 
-Run ComfyUI with ReActor, `inswapper_128.onnx`, and `codeformer-v0.1.0.pth` installed. Each panel uses YOLOv5l, CodeFormer boosting and restoration at weight 0.8, and an advanced CodeFormer pass on all faces at weight 0.7. The selected template determines how many faces ReActor swaps in each panel. Cloudinary handles QR sharing.
-
-For Render, point the Cloudflare Tunnel at `http://127.0.0.1:8000` on the computer running ComfyUI. Set `COMFYUI_URL` in Render to the tunnel's HTTPS hostname. Protect the hostname with a Cloudflare Access Service Auth policy and set `COMFYUI_ACCESS_CLIENT_ID` and `COMFYUI_ACCESS_CLIENT_SECRET` as server environment variables. The backend sends these credentials with ComfyUI requests.
-
-The hidden Ghibli route uses OpenAI and requires `OPENAI_API_KEY`.
+On Render, set `OPENAI_API_KEY`, `CLOUDINARY_CLOUD_NAME`, and `CLOUDINARY_UPLOAD_PRESET` as server environment variables. `OPENAI_IMAGE_MODEL` defaults to `gpt-image-2.5-flare`. Both MultiPlaces and the hidden Ghibli route use the same key and model.
 
 ## Templates
 
-Add image files to `Template Images` and register them with their person count in `server/templates.js`. Use the existing 1200 × 1800 four-panel geometry so ComfyUI crops and reassembles each panel correctly.
+Add PNG files to `Template Images` and register them with their person count in `server/templates.js`. Use the existing 1200 × 1800 four-panel geometry so the server can reassemble each panel within the original frame.
 
 ## Build and verification
 
@@ -40,9 +36,9 @@ npm start
 
 The production build is served at http://localhost:3001. The server binds to loopback; use a same-origin HTTPS reverse proxy when hosting. Before public hosting, add authentication and account-level generation quotas. The current in-memory IP limiter is intended for local/single-instance use, not public billing protection. Set proxy trust deliberately if deploying behind a proxy.
 
-The web server holds incoming photos in memory, normalizes orientation, and strips EXIF before sending them to the configured image service. With ComfyUI, the temporary input and output files are stored on the ComfyUI host. With OpenAI, its retention policies apply. The generated postcard is stored in Cloudinary's `multiplaces` folder for public QR sharing. Automatic retries are disabled.
+The web server holds incoming photos in memory, normalizes orientation, and strips EXIF before sending them to OpenAI. OpenAI’s retention policies apply. The generated postcard is stored in Cloudinary's `multiplaces` folder for public QR sharing. Automatic retries are disabled.
 
-Tests mock ComfyUI, OpenAI, and Cloudinary to verify workflow settings, tunnel authentication headers, and input validation.
+Tests mock OpenAI and Cloudinary to verify input validation, image order, template selection, frame preservation, and QR sharing.
 
 Official references: https://developers.openai.com/api/docs/models/gpt-image-2.5-flare and https://developers.openai.com/api/reference/resources/images/methods/edit
 
